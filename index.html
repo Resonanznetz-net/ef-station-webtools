@@ -56,11 +56,18 @@
             document.getElementById('pin').value = Math.floor(100000 + Math.random() * 900000);
         };
 
-        // Flash-Status anzeigen
+        // Flash-Status anzeigen & Config freischalten
         installButton.addEventListener('state-change', (ev) => {
-            document.getElementById('install-state').innerText = ev.detail.state;
-            if (ev.detail.state && ev.detail.state.includes('SUCCESS')) {
+            const state = ev.detail.state;
+            document.getElementById('install-state').innerText = state;
+
+            console.log("Install Button State:", state);
+
+            // WICHTIG: Wir reagieren nur auf den erfolgreichen FLASH-Vorgang.
+            // Wir ignorieren Improv-Fehler des Tools, da wir unser eigenes nutzen.
+            if (state === 'INSTALL_SUCCESSFUL' || state === 'OB_SUCCESS') {
                  configSection.classList.remove('hidden');
+                 statusDiv.innerText = "Flash komplett. Bitte Gerät resetten und 'Configure Device' klicken.";
             }
         });
 
