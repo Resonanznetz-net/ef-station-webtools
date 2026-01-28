@@ -1,0 +1,177 @@
+// ============================================
+// VERBESSERTE handleImprovCommand() Funktion
+// ============================================
+// Ersetze die komplette handleImprovCommand() in deiner main.cpp hiermit
+
+void handleImprovCommand() {
+  // DEBUG: Zeige empfangenen Befehl
+  Serial.printf("\n[CMD] Cmd=0x%02X Len=%d\n", improvCmd, improvLen);
+
+  // Checksumme berechnen
+  uint8_t sum = improvCmd + improvLen;
+  for (int i = 0; i < improvLen; i++) sum += improvData[i];
+
+  // DEBUG: Checksumme prüfen
+  Serial.printf("[CHK] Berechnet=0x%02X Empfangen=0x%02X\n", sum, improvChecksum);
+
+  if (sum != improvChecksum) {
+    Serial.println("[ERR] Checksumme FALSCH! Befehl ignoriert.");
+    return;
+  }
+  Serial.println("[OK] Checksumme korrekt.");
+
+  // RPC 0x01: WiFi Provisioning (Standard Improv)
+  if (improvCmd == 0x01) {
+    Serial.println("[CMD] WiFi Provisioning (0x01)");
+
+    uint8_t ssidLen = improvData[0];
+    String ssid = "";
+    for(int i = 0; i < ssidLen; i++) ssid += (char)improvData[1 + i];
+
+    uint8_t passLen = improvData[1 + ssidLen];
+    String pass = "";
+    for(int i = 0; i < passLen; i++) pass += (char)improvData[2 + ssidLen + i];
+
+    Serial.printf("[WIFI] SSID='%s' Pass='%s'\n", ssid.c_str(), pass.c_str());
+
+    wifiSsid = ssid;
+    wifiPass = pass;
+
+    prefs.begin("triton", false);
+    prefs.putString("ssid", wifiSsid);
+    prefs.putString("pass", wifiPass);
+    prefs.end();
+
+    // Antwort: State PROVISIONING (0x02)
+    uint8_t resp[] = {0x01, 0x01, 0x02};
+    uint8_t cs = 0x01 + 0x01 + 0x02;
+    Serial.write(resp, 3);
+    Serial.write(cs);
+    Serial.println("[OK] WiFi gespeichert.");
+  }
+
+  // RPC 0x02: Get Current State
+  else if (improvCmd == 0x02) {
+    Serial.println("[CMD] Get State (0x02)");
+    uint8_t state = isProvisioned ? 0x03 : 0x01;
+
+    Serial.write(0x02);
+    Serial.write(0x01);
+    Serial.write(state);
+    Serial.write((uint8_t)(0x02 + 0x01 + state));
+    Serial.printf("[OK] State=%d gesendet.\n", state);
+  }
+
+  // RPC 0x03: Get Device Info
+  else if (improvCmd == 0x03) {
+    Serial.println("[CMD] Get Device Info (0x03)");
+    uint8_t data[] = {
+      6, 'T','r','i','t','o','n',
+      3, '8','.','4',
+      7, 'E','S','P','3','2','-','C','3',
+      0
+    };
+    uint8_t len = sizeof(data);
+
+    Serial.write(0x03);
+    Serial.write(len);
+
+    uint8_t checksum = 0x03 + len;
+    for(int i = 0; i < len; i++) {
+      Serial.write(data[i]);
+      checksum += data[i];
+    }
+    Serial.write(checksum);
+    Serial.println("[OK] Device Info gesendet.");
+  }
+
+  // RPC 0x04: Custom Config (TenantID|PIN|Secret|Host|SSID|Pass)
+  else if (improvCmd == 0x04) {
+    Serial.println("[CMD] Custom Config (0x04)");
+
+    // Daten zu String konvertieren
+    String dataStr = "";
+    for(int i = 0; i < improvLen; i++) {
+      dataStr += (char)improvData[i];
+    }
+
+    Serial.printf("[DATA] Raw: '%s'\n", dataStr.c_str());
+    Serial.printf("[DATA] Länge: %d Bytes\n", improvLen);
+
+    // Pipe-Trenner finden
+    int idx1 = dataStr.indexOf('|');
+    int idx2 = dataStr.indexOf('|', idx1 + 1);
+    int idx3 = dataStr.indexOf('|', idx2 + 1);
+    int idx4 = dataStr.indexOf('|', idx3 + 1);
+    int idx5 = dataStr.indexOf('|', idx4 + 1);
+
+    Serial.printf("[PARSE] Trenner bei: %d, %d, %d, %d, %d\n", idx1, idx2, idx3, idx4, idx5);
+
+    // Prüfen ob alle Trenner vorhanden
+    if (idx1 <= 0 || idx2 <= 0 || idx3 <= 0 || idx4 <= 0) {
+      Serial.println("[ERR] Nicht genug Pipe-Trenner gefunden!");
+
+      // Fehler-Antwort senden
+      Serial.write(0x04);
+      Serial.write(0x01);
+      Serial.write(0xFF); // Error code
+      Serial.write((uint8_t)(0x04 + 0x01 + 0xFF));
+      return;
+    }
+
+    // Werte extrahieren
+    tenantId = dataStr.substring(0, idx1);
+    claimPin = dataStr.substring(idx1 + 1, idx2);
+    dbSecret = dataStr.substring(idx2 + 1, idx3);
+    hostUrl  = dataStr.substring(idx3 + 1, idx4);
+
+    // SSID und Pass (idx5 könnte -1 sein wenn Pass leer)
+    if (idx5 > 0) {
+      wifiSsid = dataStr.substring(idx4 + 1, idx5);
+      wifiPass = dataStr.substring(idx5 + 1);
+    } else {
+      wifiSsid = dataStr.substring(idx4 + 1);
+      wifiPass = "";
+    }
+
+    // DEBUG: Geparste Werte anzeigen
+    Serial.println("[PARSED VALUES]");
+    Serial.printf("  TenantID: '%s'\n", tenantId.c_str());
+    Serial.printf("  ClaimPIN: '%s'\n", claimPin.c_str());
+    Serial.printf("  DBSecret: '%s' (%d chars)\n", dbSecret.substring(0, 4).c_str(), dbSecret.length());
+    Serial.printf("  HostURL:  '%s'\n", hostUrl.c_str());
+    Serial.printf("  WiFiSSID: '%s'\n", wifiSsid.c_str());
+    Serial.printf("  WiFiPass: '%s' (%d chars)\n", wifiPass.length() > 0 ? "****" : "(leer)", wifiPass.length());
+
+    // Validierung
+    if (tenantId.length() == 0 || wifiSsid.length() == 0) {
+      Serial.println("[ERR] TenantID oder SSID ist leer!");
+      Serial.write(0x04);
+      Serial.write(0x01);
+      Serial.write(0xFE); // Validation error
+      Serial.write((uint8_t)(0x04 + 0x01 + 0xFE));
+      return;
+    }
+
+    // Speichern
+    Serial.println("[SAVE] Speichere in NVS...");
+    saveConfig();
+    Serial.println("[OK] Config gespeichert!");
+
+    // Erfolgs-Antwort senden
+    Serial.write(0x04);
+    Serial.write(0x01);
+    Serial.write(0x00); // Success
+    Serial.write((uint8_t)(0x04 + 0x01 + 0x00));
+
+    Serial.println("[OK] Neustart in 500ms...");
+    Serial.flush(); // Warte bis alles gesendet
+    delay(500);
+    ESP.restart();
+  }
+
+  // Unbekannter Befehl
+  else {
+    Serial.printf("[WARN] Unbekannter Befehl: 0x%02X\n", improvCmd);
+  }
+}
