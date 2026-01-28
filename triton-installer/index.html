@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Triton Flash & Configure</title>
+    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <style>
+        body { font-family: sans-serif; padding: 2rem; }
+        .hidden { display: none; }
+        button { padding: 10px 20px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Triton v8.4 Flasher</h1>
+
+    <!-- Step 1: Flash Firmware -->
+    <div id="flash-section">
+        <esp-web-install-button
+            manifest="manifest.json"
+        ></esp-web-install-button>
+    </div>
+
+    <!-- Step 2: Configure (Hidden until flashed) -->
+    <div id="config-section" class="hidden">
+        <h2>Configuration</h2>
+        <p>Firmware installed. Now configure the device.</p>
+
+        <label>Tenant ID (Auto): <input type="text" id="tid" readonly></label><br><br>
+        <label>Claim PIN (Auto): <input type="text" id="pin" readonly></label><br><br>
+        <label>DB Secret: <input type="password" id="secret"></label><br><br>
+        <label>Firebase Host: <input type="text" id="host"></label><br><br>
+
+        <button id="btn-configure">Configure Device</button>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const installButton = document.querySelector('esp-web-install-button');
+        const configSection = document.getElementById('config-section');
+        const btnConfigure = document.getElementById('btn-configure');
+        const statusDiv = document.getElementById('status');
+        const tidInput = document.getElementById('tid');
+        const pinInput = document.getElementById('pin');
+
+        // Generate Random ID & PIN
+        function generateId(length) {
+            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < length; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
+            return result;
+        }
+
+        tidInput.value = 'dev_' + generateId(6);
+        pinInput.value = Math.floor(100000 + Math.random() * 900000); // 6 digit PIN
+
+        // Listen for install success
+        // Note: The event might differ based on version, but 'install' or 'state-change' is common.
+        // Usually, the button hides itself or we can listen to the event.
+        // For v10:
+        installButton.addEventListener('state-change', (ev) => {
+            console.log('State:', ev.detail.state);
+            if (ev.detail.state === 'INSTALL_SUCCESSFUL' || ev.detail.state === 'IMPROV_SUCCESSFUL') { // Or similar
+                 configSection.classList.remove('hidden');
+            }
+        });
+
+        // Fallback for manual testing
+        // setTimeout(() => configSection.classList.remove('hidden'), 5000);
+
+        btnConfigure.addEventListener('click', async () => {
+            statusDiv.innerText = "Requesting Serial Port...";
+
+            try {
+                // Request Port Again (Handover)
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+
+                statusDiv.innerText = "Connected. Sending Config...";
+
+                const writer = port.writable.getWriter();
+
+                // Construct Packet: 0x04 | Len | Data | Checksum
+                // Data: TenantID|PIN|Secret|Host
+                const dataStr = `${tidInput.value}|${pinInput.value}|${document.getElementById('secret').value}|${document.getElementById('host').value}`;
+
+                const encoder = new TextEncoder();
+                const dataBytes = encoder.encode(dataStr);
+                const len = dataBytes.length;
+
+                const cmd = 0x04;
+                let sum = cmd + len;
+                for(let b of dataBytes) sum += b;
+                const checksum = sum & 0xFF;
+
+                const packet = new Uint8Array(3 + len);
+                packet[0] = cmd;
+                packet[1] = len;
+                packet.set(dataBytes, 2);
+                packet[2 + len] = checksum;
+
+                await writer.write(packet);
+                writer.releaseLock();
+
+                statusDiv.innerText = "Config Sent! Device should reboot.";
+                await port.close();
+
+            } catch (err) {
+                console.error(err);
+                statusDiv.innerText = "Error: " + err.message;
+            }
+        });
+    </script>
+</body>
+</html>
