@@ -46,6 +46,7 @@
     document.addEventListener('DOMContentLoaded', () => {
         const installButton = document.getElementById('install-button');
         const configSection = document.getElementById('config-section');
+        const forceShowBtn = document.getElementById('btn-force-show'); // NEU: Manueller Button
         const sendConfigBtn = document.getElementById('btn-configure');
         const statusDiv = document.getElementById('config-status');
         const debugOutput = document.getElementById('debug-output');
@@ -55,6 +56,12 @@
             document.getElementById('tid').value = "dev_" + Math.random().toString(36).substring(2, 8);
             document.getElementById('pin').value = Math.floor(100000 + Math.random() * 900000);
         };
+
+        // NEU: Funktion für den manuellen Button
+        forceShowBtn.addEventListener('click', () => {
+            console.log("Konfiguration manuell eingeblendet.");
+            configSection.classList.remove('hidden');
+        });
 
         // Flash-Status anzeigen & Config freischalten
         installButton.addEventListener('state-change', (ev) => {
