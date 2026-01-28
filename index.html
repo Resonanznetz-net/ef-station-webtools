@@ -52,13 +52,15 @@
         tidInput.value = 'dev_' + generateId(6);
         pinInput.value = Math.floor(100000 + Math.random() * 900000); // 6 digit PIN
 
+
         // Listen for install success
-        // Note: The event might differ based on version, but 'install' or 'state-change' is common.
-        // Usually, the button hides itself or we can listen to the event.
-        // For v10:
         installButton.addEventListener('state-change', (ev) => {
-            console.log('State:', ev.detail.state);
-            if (ev.detail.state === 'INSTALL_SUCCESSFUL' || ev.detail.state === 'IMPROV_SUCCESSFUL') { // Or similar
+            const state = ev.detail.state;
+            console.log('State:', state);
+            document.getElementById('install-state').innerText = state;
+            
+            // HINWEIS: Manche Versionen nutzen 'OB_SUCCESS' oder 'INSTALL_SUCCESSFUL'
+            if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' || state === 'OB_SUCCESS') { 
                  configSection.classList.remove('hidden');
             }
         });
