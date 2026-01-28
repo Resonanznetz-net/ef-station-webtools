@@ -38,105 +38,127 @@
         <div id="status"></div>
     </div>
 
-    <script>
-        const installButton = document.querySelector('esp-web-install-button');
-        const configSection = document.getElementById('config-section');
-        const btnConfigure = document.getElementById('btn-configure');
-        const statusDiv = document.getElementById('status');
-        const tidInput = document.getElementById('tid');
-        const pinInput = document.getElementById('pin');
+<script>
+    const installButton = document.getElementById('install-button');
+    const configSection = document.getElementById('config-section');
+    const installStateSpan = document.getElementById('install-state');
+    const sendConfigBtn = document.getElementById('btn-configure');
+    const statusDiv = document.getElementById('config-status');
 
-        // Generate Random ID & PIN
-        function generateId(length) {
-            const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
-            let result = '';
-            for (let i = 0; i < length; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-            return result;
+    // Hilfsfunktion: String zu Uint8Array
+    function stringToUint8Array(str) {
+        const arr = new Uint8Array(str.length);
+        for (let i = 0; i < str.length; i++) {
+            arr[i] = str.charCodeAt(i);
         }
+        return arr;
+    }
 
-        tidInput.value = 'dev_' + generateId(6);
-        pinInput.value = Math.floor(100000 + Math.random() * 900000); // 6 digit PIN
+    // Generiere zufällige IDs beim Laden
+    window.onload = () => {
+        const tid = "dev_" + Math.random().toString(36).substring(2, 8);
+        const pin = Math.floor(100000 + Math.random() * 900000);
+        document.getElementById('tid').value = tid;
+        document.getElementById('pin').value = pin;
+    };
 
+    // Überwache den Flash-Fortschritt nur, um das Menü einzublenden
+    installButton.addEventListener('state-change', (ev) => {
+        const state = ev.detail.state;
+        console.log('Install State:', state);
+        installStateSpan.innerText = state;
 
-        // Listen for install success
-// ... (Ihr bestehender Code für generateId und installButton Listener) ...
+        // Wenn fertig (oder Fehler, damit man es debuggen kann), zeige Config an
+        if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' || state.includes('SUCCESS') || state === 'ERROR') {
+                configSection.classList.remove('hidden');
+        }
+    });
 
-        installButton.addEventListener('state-change', (ev) => {
-            const state = ev.detail.state;
-            console.log('State:', state);
-            // document.getElementById('install-state').innerText = state; // (Optional, falls Element existiert)
-            
-            if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' || state === 'OB_SUCCESS') { 
-                 configSection.classList.remove('hidden');
-                 // Button ausblenden, wenn es automatisch geklappt hat (optional)
-                 document.getElementById('btn-force-show').style.display = 'none';
+    // HAUPTLOGIK: Senden der Konfiguration via Web Serial
+    // Basierend auf Recherche: Erzwingt NEUE Verbindung und setzt DTR/RTS für C3
+    sendConfigBtn.addEventListener('click', async () => {
+        statusDiv.innerText = "Starting connection sequence...";
+        statusDiv.style.color = "blue";
+
+        let port;
+        let writer;
+
+        try {
+            // 1. ERZWINGE NEUE PORT-AUSWAHL
+            // Der User MUSS das Gerät neu auswählen, um den Konflikt mit dem Flasher zu lösen.
+            statusDiv.innerText = "WICHTIG: Wählen Sie den Port erneut aus...";
+            port = await navigator.serial.requestPort();
+
+            // 2. PORT ÖFFNEN (Mit C3-spezifischen Flags)
+            statusDiv.innerText = "Opening port (setting DTR/RTS)...";
+            // WICHTIG lt. Recherche: dataTerminalReady und requestToSend sind nötig für ESP32-C3 CDC
+            await port.open({ baudRate: 115200, dataTerminalReady: true, requestToSend: true });
+
+            // Kurze Pause zur Stabilisierung
+            await new Promise(r => setTimeout(r, 100));
+
+            // 3. DATENPAKET BAUEN
+            const tid = document.getElementById('tid').value;
+            const pin = document.getElementById('pin').value;
+            const secret = document.getElementById('secret').value;
+            const host = document.getElementById('host').value;
+            const ssid = document.getElementById('ssid').value;
+            const pass = document.getElementById('pass').value;
+
+            if (!secret || !host || !ssid || !pass) {
+                throw new Error("Please fill all fields (SSID, Pass, Secret, Host).");
             }
-        });
 
-        // NEU: Listener für den Notfall-Button
-        document.getElementById('btn-force-show').addEventListener('click', () => {
-            // Erzwingt das Anzeigen des Config-Bereichs
-            configSection.classList.remove('hidden');
-            // Versteckt den Notfall-Button selbst
-            document.getElementById('btn-force-show').style.display = 'none';
-        });
+            // Format: TenantID|PIN|Secret|Host|SSID|Pass
+            const dataStr = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}`;
+            const dataBytes = stringToUint8Array(dataStr);
+            const len = dataBytes.length;
 
-        // Fallback for manual testing (KANN ENTFERNT WERDEN, DA WIR JETZT DEN BUTTON HABEN)
-        // setTimeout(() => configSection.classList.remove('hidden'), 5000);
+            // Checksumme berechnen: (0x04 + Len + Sum(Data)) & 0xFF
+            let sum = 0x04 + len;
+            for(let b of dataBytes) sum += b;
+            const checksum = sum & 0xFF;
 
-        btnConfigure.addEventListener('click', async () => {
-            // ... (Rest Ihres Codes) ...
-            statusDiv.innerText = "Requesting Serial Port...";
+            // Paket bauen: [0x04, Len, ...Data, Checksum]
+            const packet = new Uint8Array(2 + len + 1);
+            packet[0] = 0x04;
+            packet[1] = len;
+            packet.set(dataBytes, 2);
+            packet[len + 2] = checksum;
 
-            try {
-                // Request Port Again (Handover)
-                const port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
+            console.log("Sending Packet (Hex):", packet);
 
-                statusDiv.innerText = "Connected. Sending Config...";
+            // 4. SENDEN
+            statusDiv.innerText = `Sending ${packet.length} bytes...`;
+            writer = port.writable.getWriter();
+            await writer.write(packet);
 
-                const writer = port.writable.getWriter();
+            // WICHTIG: Writer schließen, damit Daten physisch rausgespült werden
+            writer.releaseLock();
 
+            statusDiv.innerText = "Config SENT! Check device logs. Device should reboot.";
+            statusDiv.style.color = "green";
 
-                // Construct Packet: 0x04 | Len | Data | Checksum
-                // Data: TenantID|PIN|Secret|Host|SSID|PASS
-                const ssid = document.getElementById('ssid').value;
-                const pass = document.getElementById('pass').value;
-
-                // Construct Packet: 0x04 | Len | Data | Checksum
-                // Data: TenantID|PIN|Secret|Host|SSID|Pass
-                const ssidVal = document.getElementById('ssid').value;
-                const passVal = document.getElementById('pass').value;
-
-                // WICHTIG: Die Reihenfolge muss exakt zur main.cpp passen!
-                const dataStr = `${tidInput.value}|${pinInput.value}|${document.getElementById('secret').value}|${document.getElementById('host').value}|${ssidVal}|${passVal}`;
-
-                const encoder = new TextEncoder();
-                const dataBytes = encoder.encode(dataStr);
-                const len = dataBytes.length;
-
-                const cmd = 0x04;
-                let sum = cmd + len;
-                for(let b of dataBytes) sum += b;
-                const checksum = sum & 0xFF;
-
-                const packet = new Uint8Array(3 + len);
-                packet[0] = cmd;
-                packet[1] = len;
-                packet.set(dataBytes, 2);
-                packet[2 + len] = checksum;
-
-                await writer.write(packet);
-                writer.releaseLock();
-
-                statusDiv.innerText = "Config Sent! Device should reboot.";
-                await port.close();
-
-            } catch (err) {
-                console.error(err);
+        } catch (err) {
+            console.error(err);
+            // Zeige spezifische Fehler bei Port-Problemen
+            if (err.name === 'NotFoundError') {
+                statusDiv.innerText = "Error: No device selected.";
+            } else if (err.name === 'NetworkError') {
+                 statusDiv.innerText = "Error: Port busy. Unplug device and try again.";
+            } else {
                 statusDiv.innerText = "Error: " + err.message;
             }
-        });
-    </script>
+            statusDiv.style.color = "red";
+            if (writer) writer.releaseLock();
+        } finally {
+            // 5. PORT SAUBER SCHLIESSEN
+            if (port && port.readable) {
+                await port.close();
+                console.log("Port closed safely.");
+            }
+        }
+    });
+</script>
 </body>
 </html>
