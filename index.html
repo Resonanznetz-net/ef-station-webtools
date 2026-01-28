@@ -39,65 +39,45 @@
     </div>
 
 <script>
-    const installButton = document.getElementById('install-button');
-    const configSection = document.getElementById('config-section');
-    const installStateSpan = document.getElementById('install-state');
-    const sendConfigBtn = document.getElementById('btn-configure');
-    const statusDiv = document.getElementById('config-status');
+    // Warten, bis die Seite komplett geladen ist
+    document.addEventListener('DOMContentLoaded', () => {
+        // KORREKTE Selektoren für die tatsächlichen HTML-Elemente
+        const installButton = document.querySelector('esp-web-install-button');
+        const configSection = document.getElementById('config-section');
+        const btnForceShow = document.getElementById('btn-force-show');
+        const sendConfigBtn = document.getElementById('btn-configure');
+        const statusDiv = document.getElementById('status');
 
-    // Hilfsfunktion: String zu Uint8Array
-    function stringToUint8Array(str) {
-        const arr = new Uint8Array(str.length);
-        for (let i = 0; i < str.length; i++) {
-            arr[i] = str.charCodeAt(i);
+        // IDs generieren
+        const tidValue = "dev_" + Math.random().toString(36).substring(2, 8);
+        const pinValue = Math.floor(100000 + Math.random() * 900000);
+        document.getElementById('tid').value = tidValue;
+        document.getElementById('pin').value = pinValue;
+
+        // Flash-Status überwachen
+        if (installButton) {
+            installButton.addEventListener('state-change', (ev) => {
+                const state = ev.detail.state;
+                console.log('Install State:', state);
+
+                // Config-Bereich anzeigen wenn Flash erfolgreich
+                if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' ||
+                    (state && state.includes('SUCCESS')) || state === 'ERROR') {
+                    configSection.classList.remove('hidden');
+                    btnForceShow.style.display = 'none';
+                }
+            });
         }
-        return arr;
-    }
 
-    // Generiere zufällige IDs beim Laden
-    window.onload = () => {
-        const tid = "dev_" + Math.random().toString(36).substring(2, 8);
-        const pin = Math.floor(100000 + Math.random() * 900000);
-        document.getElementById('tid').value = tid;
-        document.getElementById('pin').value = pin;
-    };
+        // Manueller Button zum Öffnen der Konfiguration
+        btnForceShow.addEventListener('click', () => {
+            configSection.classList.remove('hidden');
+            btnForceShow.style.display = 'none';
+        });
 
-    // Überwache den Flash-Fortschritt nur, um das Menü einzublenden
-    installButton.addEventListener('state-change', (ev) => {
-        const state = ev.detail.state;
-        console.log('Install State:', state);
-        installStateSpan.innerText = state;
-
-        // Wenn fertig (oder Fehler, damit man es debuggen kann), zeige Config an
-        if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' || state.includes('SUCCESS') || state === 'ERROR') {
-                configSection.classList.remove('hidden');
-        }
-    });
-
-    // HAUPTLOGIK: Senden der Konfiguration via Web Serial
-    // Basierend auf Recherche: Erzwingt NEUE Verbindung und setzt DTR/RTS für C3
-    sendConfigBtn.addEventListener('click', async () => {
-        statusDiv.innerText = "Starting connection sequence...";
-        statusDiv.style.color = "blue";
-
-        let port;
-        let writer;
-
-        try {
-            // 1. ERZWINGE NEUE PORT-AUSWAHL
-            // Der User MUSS das Gerät neu auswählen, um den Konflikt mit dem Flasher zu lösen.
-            statusDiv.innerText = "WICHTIG: Wählen Sie den Port erneut aus...";
-            port = await navigator.serial.requestPort();
-
-            // 2. PORT ÖFFNEN (Mit C3-spezifischen Flags)
-            statusDiv.innerText = "Opening port (setting DTR/RTS)...";
-            // WICHTIG lt. Recherche: dataTerminalReady und requestToSend sind nötig für ESP32-C3 CDC
-            await port.open({ baudRate: 115200, dataTerminalReady: true, requestToSend: true });
-
-            // Kurze Pause zur Stabilisierung
-            await new Promise(r => setTimeout(r, 100));
-
-            // 3. DATENPAKET BAUEN
+        // --- HAUPTFUNKTION: KONFIGURATION SENDEN ---
+        sendConfigBtn.addEventListener('click', async () => {
+            // Validierung zuerst
             const tid = document.getElementById('tid').value;
             const pin = document.getElementById('pin').value;
             const secret = document.getElementById('secret').value;
@@ -106,58 +86,94 @@
             const pass = document.getElementById('pass').value;
 
             if (!secret || !host || !ssid || !pass) {
-                throw new Error("Please fill all fields (SSID, Pass, Secret, Host).");
+                statusDiv.innerText = "Fehler: Bitte alle Felder ausfüllen (SSID, Pass, Secret, Host).";
+                statusDiv.style.color = "red";
+                return;
             }
 
-            // Format: TenantID|PIN|Secret|Host|SSID|Pass
-            const dataStr = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}`;
-            const dataBytes = stringToUint8Array(dataStr);
-            const len = dataBytes.length;
+            statusDiv.innerText = "Starte Verbindung... Bitte Gerät im Popup auswählen.";
+            statusDiv.style.color = "blue";
 
-            // Checksumme berechnen: (0x04 + Len + Sum(Data)) & 0xFF
-            let sum = 0x04 + len;
-            for(let b of dataBytes) sum += b;
-            const checksum = sum & 0xFF;
+            let port = null;
+            let writer = null;
 
-            // Paket bauen: [0x04, Len, ...Data, Checksum]
-            const packet = new Uint8Array(2 + len + 1);
-            packet[0] = 0x04;
-            packet[1] = len;
-            packet.set(dataBytes, 2);
-            packet[len + 2] = checksum;
+            try {
+                // 1. PORT ERZWINGEN: Der User MUSS neu auswählen.
+                // Das löst den Konflikt mit dem Flash-Tool.
+                port = await navigator.serial.requestPort();
 
-            console.log("Sending Packet (Hex):", packet);
+                // 2. PORT ÖFFNEN (C3-spezifische Flags für USB-CDC)
+                statusDiv.innerText = "Öffne Port (setze DTR/RTS für ESP32-C3)...";
+                await port.open({
+                    baudRate: 115200,
+                    dataTerminalReady: true,
+                    requestToSend: true
+                });
 
-            // 4. SENDEN
-            statusDiv.innerText = `Sending ${packet.length} bytes...`;
-            writer = port.writable.getWriter();
-            await writer.write(packet);
+                // Kurze Pause, damit der C3 sich stabilisiert
+                await new Promise(r => setTimeout(r, 200));
 
-            // WICHTIG: Writer schließen, damit Daten physisch rausgespült werden
-            writer.releaseLock();
+                // 3. DATEN VORBEREITEN
+                // Format: TenantID|PIN|Secret|Host|SSID|Pass
+                const dataStr = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}`;
+                const encoder = new TextEncoder();
+                const dataBytes = encoder.encode(dataStr);
+                const len = dataBytes.length;
 
-            statusDiv.innerText = "Config SENT! Check device logs. Device should reboot.";
-            statusDiv.style.color = "green";
+                // Checksumme: (0x04 + Len + Sum(Data)) & 0xFF
+                let sum = 0x04 + len;
+                for (let b of dataBytes) sum += b;
+                const checksum = sum & 0xFF;
 
-        } catch (err) {
-            console.error(err);
-            // Zeige spezifische Fehler bei Port-Problemen
-            if (err.name === 'NotFoundError') {
-                statusDiv.innerText = "Error: No device selected.";
-            } else if (err.name === 'NetworkError') {
-                 statusDiv.innerText = "Error: Port busy. Unplug device and try again.";
-            } else {
-                statusDiv.innerText = "Error: " + err.message;
+                // Paket: [0x04, Len, ...Data, Checksum]
+                const packet = new Uint8Array(2 + len + 1);
+                packet[0] = 0x04;
+                packet[1] = len;
+                packet.set(dataBytes, 2);
+                packet[len + 2] = checksum;
+
+                console.log("Sende Paket:", Array.from(packet).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                statusDiv.innerText = `Sende ${packet.length} Bytes...`;
+
+                // 4. SENDEN
+                writer = port.writable.getWriter();
+                await writer.write(packet);
+                writer.releaseLock();
+                writer = null;
+
+                statusDiv.innerText = "Konfiguration GESENDET! Gerät sollte neu starten.";
+                statusDiv.style.color = "green";
+
+            } catch (err) {
+                console.error("Serial Error:", err);
+
+                // Spezifische Fehlermeldungen
+                if (err.name === 'NotFoundError') {
+                    statusDiv.innerText = "Fehler: Kein Gerät ausgewählt.";
+                } else if (err.name === 'NetworkError' || err.message.includes('busy')) {
+                    statusDiv.innerText = "Fehler: Port belegt. Gerät abstecken und erneut versuchen.";
+                } else if (err.name === 'InvalidStateError') {
+                    statusDiv.innerText = "Fehler: Port bereits geöffnet. Seite neu laden.";
+                } else {
+                    statusDiv.innerText = "Fehler: " + err.message;
+                }
+                statusDiv.style.color = "red";
+
+                if (writer) {
+                    try { writer.releaseLock(); } catch (e) {}
+                }
+            } finally {
+                // 5. PORT IMMER SCHLIESSEN
+                if (port) {
+                    try {
+                        await port.close();
+                        console.log("Port geschlossen.");
+                    } catch (e) {
+                        console.log("Port war bereits geschlossen oder Fehler:", e);
+                    }
+                }
             }
-            statusDiv.style.color = "red";
-            if (writer) writer.releaseLock();
-        } finally {
-            // 5. PORT SAUBER SCHLIESSEN
-            if (port && port.readable) {
-                await port.close();
-                console.log("Port closed safely.");
-            }
-        }
+        });
     });
 </script>
 </body>
