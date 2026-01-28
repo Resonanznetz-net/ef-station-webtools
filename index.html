@@ -115,30 +115,40 @@
                 let buffer = "";
 
                 // Lese Schleife bis READY kommt oder Timeout (5s)
-                const timeout = setTimeout(() => {
-                    if (!readyReceived) {
-                        reader.cancel();
-                        throw new Error("Timeout: Kein 'READY' vom ESP32 empfangen.");
-                    }
-                }, 5000);
+                // FIX: Sauberer Timeout-Mechanismus, der den Port nicht blockiert
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error("Timeout: Kein 'READY' vom ESP32 empfangen.")), 5000);
+                });
 
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    if (value) {
-                        buffer += value;
-                        debugOutput.textContent += value; // Zeige an, was vom ESP kommt
-                        if (buffer.includes("READY")) {
-                            readyReceived = true;
-                            clearTimeout(timeout);
-                            break; // Raus aus der Leseschleife
-                        }
-                    }
+                try {
+                    // Warte parallel auf Daten ODER Timeout
+                    await Promise.race([
+                        (async () => {
+                            while (true) {
+                                const { value, done } = await reader.read();
+                                if (done) break;
+                                if (value) {
+                                    buffer += value;
+                                    debugOutput.textContent += value;
+                                    if (buffer.includes("READY")) {
+                                        readyReceived = true;
+                                        return; // Erfolg
+                                    }
+                                }
+                            }
+                        })(),
+                        timeoutPromise
+                    ]);
+                } catch (error) {
+                    // Timeout ist aufgetreten
+                    console.error("Timeout beim Warten auf READY");
+                } finally {
+                    // WICHTIG: Reader IMMER freigeben
+                    await reader.cancel();
+                    reader.releaseLock();
                 }
 
-                reader.releaseLock(); // Reader freigeben für Writer
-
-                if (!readyReceived) throw new Error("Verbindung geschlossen vor READY.");
+                if (!readyReceived) throw new Error("Verbindung abgebrochen oder Timeout.");
 
                 statusDiv.innerText = "ESP32 ist bereit! Sende Konfiguration...";
 
