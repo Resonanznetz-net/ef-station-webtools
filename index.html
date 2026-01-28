@@ -13,13 +13,16 @@
     <h1>Triton v8.4 Flasher</h1>
 
     <!-- Step 1: Flash Firmware -->
-    <div id="flash-section">
+<div id="flash-section">
         <esp-web-install-button
             manifest="manifest.json"
         ></esp-web-install-button>
     </div>
 
-    <!-- Step 2: Configure (Hidden until flashed) -->
+    <button id="btn-force-show" style="margin-top: 40px; background: #f0f0f0; color: #666; font-size: 0.8em; border: 1px solid #ccc;">
+        ⚠️ Manuelle Konfiguration öffnen (falls Popup fehlt)
+    </button>
+
     <div id="config-section" class="hidden">
         <h2>Configuration</h2>
         <p>Firmware installed. Now configure the device.</p>
@@ -54,21 +57,33 @@
 
 
         // Listen for install success
+// ... (Ihr bestehender Code für generateId und installButton Listener) ...
+
         installButton.addEventListener('state-change', (ev) => {
             const state = ev.detail.state;
             console.log('State:', state);
-            document.getElementById('install-state').innerText = state;
+            // document.getElementById('install-state').innerText = state; // (Optional, falls Element existiert)
             
-            // HINWEIS: Manche Versionen nutzen 'OB_SUCCESS' oder 'INSTALL_SUCCESSFUL'
             if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' || state === 'OB_SUCCESS') { 
                  configSection.classList.remove('hidden');
+                 // Button ausblenden, wenn es automatisch geklappt hat (optional)
+                 document.getElementById('btn-force-show').style.display = 'none';
             }
         });
 
-        // Fallback for manual testing
+        // NEU: Listener für den Notfall-Button
+        document.getElementById('btn-force-show').addEventListener('click', () => {
+            // Erzwingt das Anzeigen des Config-Bereichs
+            configSection.classList.remove('hidden');
+            // Versteckt den Notfall-Button selbst
+            document.getElementById('btn-force-show').style.display = 'none';
+        });
+
+        // Fallback for manual testing (KANN ENTFERNT WERDEN, DA WIR JETZT DEN BUTTON HABEN)
         // setTimeout(() => configSection.classList.remove('hidden'), 5000);
 
         btnConfigure.addEventListener('click', async () => {
+            // ... (Rest Ihres Codes) ...
             statusDiv.innerText = "Requesting Serial Port...";
 
             try {
