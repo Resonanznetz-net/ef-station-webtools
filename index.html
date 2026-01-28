@@ -95,9 +95,14 @@
 
                 const writer = port.writable.getWriter();
 
+
                 // Construct Packet: 0x04 | Len | Data | Checksum
-                // Data: TenantID|PIN|Secret|Host
-                const dataStr = `${tidInput.value}|${pinInput.value}|${document.getElementById('secret').value}|${document.getElementById('host').value}`;
+                // Data: TenantID|PIN|Secret|Host|SSID|PASS
+                const ssid = document.getElementById('ssid').value;
+                const pass = document.getElementById('pass').value;
+                
+                // Pipe | als Trenner. Achtung: SSID/Pass dürfen kein | enthalten!
+                const dataStr = `${tidInput.value}|${pinInput.value}|${document.getElementById('secret').value}|${document.getElementById('host').value}|${ssid}|${pass}`;
 
                 const encoder = new TextEncoder();
                 const dataBytes = encoder.encode(dataStr);
