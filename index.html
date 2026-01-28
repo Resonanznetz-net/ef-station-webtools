@@ -99,19 +99,16 @@
 
             try {
                 // 1. PORT ERZWINGEN: Der User MUSS neu auswählen.
-                // Das löst den Konflikt mit dem Flash-Tool.
                 port = await navigator.serial.requestPort();
 
-                // 2. PORT ÖFFNEN (C3-spezifische Flags für USB-CDC)
-                statusDiv.innerText = "Öffne Port (setze DTR/RTS für ESP32-C3)...";
-                await port.open({
-                    baudRate: 115200,
-                    dataTerminalReady: true,
-                    requestToSend: true
-                });
+                // 2. PORT ÖFFNEN
+                // WICHTIG: KEINE DTR/RTS Flags setzen!
+                // Bei ESP32-C3 USB-CDC lösen diese einen RESET aus!
+                statusDiv.innerText = "Öffne Port...";
+                await port.open({ baudRate: 115200 });
 
-                // Kurze Pause, damit der C3 sich stabilisiert
-                await new Promise(r => setTimeout(r, 200));
+                // Warte bis Port stabil ist
+                await new Promise(r => setTimeout(r, 100));
 
                 // 3. DATEN VORBEREITEN
                 // Format: TenantID|PIN|Secret|Host|SSID|Pass
@@ -132,16 +129,55 @@
                 packet.set(dataBytes, 2);
                 packet[len + 2] = checksum;
 
-                console.log("Sende Paket:", Array.from(packet).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                console.log("Sende Paket (hex):", Array.from(packet).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                console.log("Daten-String:", dataStr);
+                console.log("Länge:", len, "Checksumme:", checksum.toString(16));
                 statusDiv.innerText = `Sende ${packet.length} Bytes...`;
 
                 // 4. SENDEN
                 writer = port.writable.getWriter();
                 await writer.write(packet);
+
+                // Warte kurz damit Daten rausgehen
+                await new Promise(r => setTimeout(r, 50));
+
                 writer.releaseLock();
                 writer = null;
 
-                statusDiv.innerText = "Konfiguration GESENDET! Gerät sollte neu starten.";
+                // 5. OPTIONAL: Auf Antwort warten (für Debugging)
+                statusDiv.innerText = "Gesendet! Warte auf Antwort...";
+
+                const reader = port.readable.getReader();
+                let response = "";
+                const timeout = setTimeout(() => reader.cancel(), 2000);
+
+                try {
+                    while (true) {
+                        const { value, done } = await reader.read();
+                        if (done) break;
+                        if (value) {
+                            const text = new TextDecoder().decode(value);
+                            response += text;
+                            console.log("Empfangen:", text);
+                            // Wenn wir was empfangen haben, kurz warten und dann beenden
+                            if (response.length > 0) {
+                                await new Promise(r => setTimeout(r, 500));
+                                break;
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Timeout oder cancel - ist OK
+                }
+                clearTimeout(timeout);
+                reader.releaseLock();
+
+                if (response.length > 0) {
+                    console.log("Gesamte Antwort:", response);
+                    statusDiv.innerText = "Konfiguration GESENDET! Gerät antwortet. Neustart...";
+                } else {
+                    statusDiv.innerText = "Konfiguration gesendet (keine Antwort). Prüfe Gerät-Logs.";
+                }
                 statusDiv.style.color = "green";
 
             } catch (err) {
@@ -163,13 +199,13 @@
                     try { writer.releaseLock(); } catch (e) {}
                 }
             } finally {
-                // 5. PORT IMMER SCHLIESSEN
+                // 6. PORT IMMER SCHLIESSEN
                 if (port) {
                     try {
                         await port.close();
                         console.log("Port geschlossen.");
                     } catch (e) {
-                        console.log("Port war bereits geschlossen oder Fehler:", e);
+                        // Ignorieren - Port könnte schon zu sein
                     }
                 }
             }
