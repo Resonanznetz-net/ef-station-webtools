@@ -31,6 +31,8 @@
         <label>Claim PIN (Auto): <input type="text" id="pin" readonly></label><br><br>
         <label>DB Secret: <input type="password" id="secret"></label><br><br>
         <label>Firebase Host: <input type="text" id="host"></label><br><br>
+        <label>WiFi SSID: <input type="text" id="ssid"></label><br><br>
+        <label>WiFi Password: <input type="password" id="pass"></label><br><br>
 
         <button id="btn-configure">Configure Device</button>
         <div id="status"></div>
@@ -100,9 +102,14 @@
                 // Data: TenantID|PIN|Secret|Host|SSID|PASS
                 const ssid = document.getElementById('ssid').value;
                 const pass = document.getElementById('pass').value;
-                
-                // Pipe | als Trenner. Achtung: SSID/Pass dürfen kein | enthalten!
-                const dataStr = `${tidInput.value}|${pinInput.value}|${document.getElementById('secret').value}|${document.getElementById('host').value}|${ssid}|${pass}`;
+
+                // Construct Packet: 0x04 | Len | Data | Checksum
+                // Data: TenantID|PIN|Secret|Host|SSID|Pass
+                const ssidVal = document.getElementById('ssid').value;
+                const passVal = document.getElementById('pass').value;
+
+                // WICHTIG: Die Reihenfolge muss exakt zur main.cpp passen!
+                const dataStr = `${tidInput.value}|${pinInput.value}|${document.getElementById('secret').value}|${document.getElementById('host').value}|${ssidVal}|${passVal}`;
 
                 const encoder = new TextEncoder();
                 const dataBytes = encoder.encode(dataStr);
