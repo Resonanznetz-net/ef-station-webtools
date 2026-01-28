@@ -15,8 +15,10 @@
     <!-- Step 1: Flash Firmware -->
 <div id="flash-section">
         <esp-web-install-button
+            id="install-button"
             manifest="manifest.json"
         ></esp-web-install-button>
+        <p>Status: <span id="install-state">-</span></p>
     </div>
 
     <button id="btn-force-show" style="margin-top: 40px; background: #f0f0f0; color: #666; font-size: 0.8em; border: 1px solid #ccc;">
@@ -35,178 +37,137 @@
         <label>WiFi Password: <input type="password" id="pass"></label><br><br>
 
         <button id="btn-configure">Configure Device</button>
-        <div id="status"></div>
+        <div id="config-status"></div>
+        <h3>Debug Log:</h3>
+        <pre id="debug-output" style="background: #f0f0f0; padding: 10px; max-height: 200px; overflow-y: auto;"></pre>
     </div>
 
 <script>
-    // Warten, bis die Seite komplett geladen ist
     document.addEventListener('DOMContentLoaded', () => {
-        // KORREKTE Selektoren für die tatsächlichen HTML-Elemente
-        const installButton = document.querySelector('esp-web-install-button');
+        const installButton = document.getElementById('install-button');
         const configSection = document.getElementById('config-section');
-        const btnForceShow = document.getElementById('btn-force-show');
         const sendConfigBtn = document.getElementById('btn-configure');
-        const statusDiv = document.getElementById('status');
+        const statusDiv = document.getElementById('config-status');
+        const debugOutput = document.getElementById('debug-output');
 
         // IDs generieren
-        const tidValue = "dev_" + Math.random().toString(36).substring(2, 8);
-        const pinValue = Math.floor(100000 + Math.random() * 900000);
-        document.getElementById('tid').value = tidValue;
-        document.getElementById('pin').value = pinValue;
+        window.onload = () => {
+            document.getElementById('tid').value = "dev_" + Math.random().toString(36).substring(2, 8);
+            document.getElementById('pin').value = Math.floor(100000 + Math.random() * 900000);
+        };
 
-        // Flash-Status überwachen
-        if (installButton) {
-            installButton.addEventListener('state-change', (ev) => {
-                const state = ev.detail.state;
-                console.log('Install State:', state);
-
-                // Config-Bereich anzeigen wenn Flash erfolgreich
-                if (state === 'INSTALL_SUCCESSFUL' || state === 'IMPROV_SUCCESSFUL' ||
-                    (state && state.includes('SUCCESS')) || state === 'ERROR') {
-                    configSection.classList.remove('hidden');
-                    btnForceShow.style.display = 'none';
-                }
-            });
-        }
-
-        // Manueller Button zum Öffnen der Konfiguration
-        btnForceShow.addEventListener('click', () => {
-            configSection.classList.remove('hidden');
-            btnForceShow.style.display = 'none';
+        // Flash-Status anzeigen
+        installButton.addEventListener('state-change', (ev) => {
+            document.getElementById('install-state').innerText = ev.detail.state;
+            if (ev.detail.state && ev.detail.state.includes('SUCCESS')) {
+                 configSection.classList.remove('hidden');
+            }
         });
 
         // --- HAUPTFUNKTION: KONFIGURATION SENDEN ---
         sendConfigBtn.addEventListener('click', async () => {
-            // Validierung zuerst
-            const tid = document.getElementById('tid').value;
-            const pin = document.getElementById('pin').value;
             const secret = document.getElementById('secret').value;
             const host = document.getElementById('host').value;
             const ssid = document.getElementById('ssid').value;
             const pass = document.getElementById('pass').value;
 
             if (!secret || !host || !ssid || !pass) {
-                statusDiv.innerText = "Fehler: Bitte alle Felder ausfüllen (SSID, Pass, Secret, Host).";
+                statusDiv.innerText = "Error: Bitte alle Felder ausfüllen!";
                 statusDiv.style.color = "red";
                 return;
             }
 
-            statusDiv.innerText = "Starte Verbindung... Bitte Gerät im Popup auswählen.";
+            statusDiv.innerText = "Warte auf Gerät... Bitte auswählen.";
             statusDiv.style.color = "blue";
+            debugOutput.textContent = "";
 
-            let port = null;
-            let writer = null;
+            let port;
+            let reader;
+            let writer;
 
             try {
-                // 1. PORT ERZWINGEN: Der User MUSS neu auswählen.
+                // 1. PORT ÖFFNEN
                 port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200, dataTerminalReady: true, requestToSend: true });
 
-                // 2. PORT ÖFFNEN
-                // WICHTIG: KEINE DTR/RTS Flags setzen!
-                // Bei ESP32-C3 USB-CDC lösen diese einen RESET aus!
-                statusDiv.innerText = "Öffne Port...";
-                await port.open({ baudRate: 115200 });
+                statusDiv.innerText = "Port offen. Warte auf 'READY' vom ESP32...";
 
-                // Warte bis Port stabil ist
-                await new Promise(r => setTimeout(r, 100));
+                // 2. AUF "READY" WARTEN (Synchronisation)
+                const textDecoder = new TextDecoderStream();
+                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+                reader = textDecoder.readable.getReader();
 
-                // 3. DATEN VORBEREITEN
-                // Format: TenantID|PIN|Secret|Host|SSID|Pass
-                const dataStr = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}`;
+                let readyReceived = false;
+                let buffer = "";
+
+                // Lese Schleife bis READY kommt oder Timeout (5s)
+                const timeout = setTimeout(() => {
+                    if (!readyReceived) {
+                        reader.cancel();
+                        throw new Error("Timeout: Kein 'READY' vom ESP32 empfangen.");
+                    }
+                }, 5000);
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) {
+                        buffer += value;
+                        debugOutput.textContent += value; // Zeige an, was vom ESP kommt
+                        if (buffer.includes("READY")) {
+                            readyReceived = true;
+                            clearTimeout(timeout);
+                            break; // Raus aus der Leseschleife
+                        }
+                    }
+                }
+
+                reader.releaseLock(); // Reader freigeben für Writer
+
+                if (!readyReceived) throw new Error("Verbindung geschlossen vor READY.");
+
+                statusDiv.innerText = "ESP32 ist bereit! Sende Konfiguration...";
+
+                // 3. DATEN PAKET BAUEN
+                const tid = document.getElementById('tid').value;
+                const pin = document.getElementById('pin').value;
+                // WICHTIG: https:// entfernen, falls der User es eingegeben hat
+                const cleanHost = host.replace("https://", "").replace("/", "");
+                const dataStr = `${tid}|${pin}|${secret}|${cleanHost}|${ssid}|${pass}`;
+
                 const encoder = new TextEncoder();
                 const dataBytes = encoder.encode(dataStr);
                 const len = dataBytes.length;
-
-                // Checksumme: (0x04 + Len + Sum(Data)) & 0xFF
                 let sum = 0x04 + len;
-                for (let b of dataBytes) sum += b;
+                for(let b of dataBytes) sum += b;
                 const checksum = sum & 0xFF;
 
-                // Paket: [0x04, Len, ...Data, Checksum]
                 const packet = new Uint8Array(2 + len + 1);
                 packet[0] = 0x04;
                 packet[1] = len;
                 packet.set(dataBytes, 2);
                 packet[len + 2] = checksum;
 
-                console.log("Sende Paket (hex):", Array.from(packet).map(b => b.toString(16).padStart(2, '0')).join(' '));
-                console.log("Daten-String:", dataStr);
-                console.log("Länge:", len, "Checksumme:", checksum.toString(16));
-                statusDiv.innerText = `Sende ${packet.length} Bytes...`;
+                console.log("Sende Paket (Hex):", packet);
 
                 // 4. SENDEN
                 writer = port.writable.getWriter();
                 await writer.write(packet);
-
-                // Warte kurz damit Daten rausgehen
-                await new Promise(r => setTimeout(r, 50));
-
                 writer.releaseLock();
-                writer = null;
 
-                // 5. OPTIONAL: Auf Antwort warten (für Debugging)
-                statusDiv.innerText = "Gesendet! Warte auf Antwort...";
-
-                const reader = port.readable.getReader();
-                let response = "";
-                const timeout = setTimeout(() => reader.cancel(), 2000);
-
-                try {
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-                        if (value) {
-                            const text = new TextDecoder().decode(value);
-                            response += text;
-                            console.log("Empfangen:", text);
-                            // Wenn wir was empfangen haben, kurz warten und dann beenden
-                            if (response.length > 0) {
-                                await new Promise(r => setTimeout(r, 500));
-                                break;
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // Timeout oder cancel - ist OK
-                }
-                clearTimeout(timeout);
-                reader.releaseLock();
-
-                if (response.length > 0) {
-                    console.log("Gesamte Antwort:", response);
-                    statusDiv.innerText = "Konfiguration GESENDET! Gerät antwortet. Neustart...";
-                } else {
-                    statusDiv.innerText = "Konfiguration gesendet (keine Antwort). Prüfe Gerät-Logs.";
-                }
+                statusDiv.innerText = "Konfiguration GESENDET! Prüfe das Log unten.";
                 statusDiv.style.color = "green";
 
             } catch (err) {
-                console.error("Serial Error:", err);
-
-                // Spezifische Fehlermeldungen
-                if (err.name === 'NotFoundError') {
-                    statusDiv.innerText = "Fehler: Kein Gerät ausgewählt.";
-                } else if (err.name === 'NetworkError' || err.message.includes('busy')) {
-                    statusDiv.innerText = "Fehler: Port belegt. Gerät abstecken und erneut versuchen.";
-                } else if (err.name === 'InvalidStateError') {
-                    statusDiv.innerText = "Fehler: Port bereits geöffnet. Seite neu laden.";
-                } else {
-                    statusDiv.innerText = "Fehler: " + err.message;
-                }
+                console.error(err);
+                statusDiv.innerText = "Fehler: " + err.message;
                 statusDiv.style.color = "red";
-
-                if (writer) {
-                    try { writer.releaseLock(); } catch (e) {}
-                }
+                if (writer) writer.releaseLock();
+                if (reader) reader.releaseLock();
             } finally {
-                // 6. PORT IMMER SCHLIESSEN
-                if (port) {
-                    try {
-                        await port.close();
-                        console.log("Port geschlossen.");
-                    } catch (e) {
-                        // Ignorieren - Port könnte schon zu sein
-                    }
+                if (port && port.readable) {
+                    await port.close();
+                    console.log("Port geschlossen.");
                 }
             }
         });
