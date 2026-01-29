@@ -46,32 +46,23 @@
     document.addEventListener('DOMContentLoaded', () => {
         const installButton = document.getElementById('install-button');
         const configSection = document.getElementById('config-section');
-        const forceShowBtn = document.getElementById('btn-force-show'); // NEU: Manueller Button
+        const forceShowBtn = document.getElementById('btn-force-show');
         const sendConfigBtn = document.getElementById('btn-configure');
         const statusDiv = document.getElementById('config-status');
         const debugOutput = document.getElementById('debug-output');
 
-        // IDs generieren
         window.onload = () => {
             document.getElementById('tid').value = "dev_" + Math.random().toString(36).substring(2, 8);
             document.getElementById('pin').value = Math.floor(100000 + Math.random() * 900000);
         };
 
-        // NEU: Funktion für den manuellen Button
         forceShowBtn.addEventListener('click', () => {
-            console.log("Konfiguration manuell eingeblendet.");
             configSection.classList.remove('hidden');
         });
 
-        // Flash-Status anzeigen & Config freischalten
         installButton.addEventListener('state-change', (ev) => {
             const state = ev.detail.state;
             document.getElementById('install-state').innerText = state;
-
-            console.log("Install Button State:", state);
-
-            // WICHTIG: Wir reagieren nur auf den erfolgreichen FLASH-Vorgang.
-            // Wir ignorieren Improv-Fehler des Tools, da wir unser eigenes nutzen.
             if (state === 'INSTALL_SUCCESSFUL' || state === 'OB_SUCCESS') {
                  configSection.classList.remove('hidden');
                  statusDiv.innerText = "Flash komplett. Bitte Gerät resetten und 'Configure Device' klicken.";
@@ -100,28 +91,23 @@
             let writer;
 
             try {
-                // 1. PORT ÖFFNEN
                 port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200, dataTerminalReady: true, requestToSend: true });
 
                 statusDiv.innerText = "Port offen. Warte auf 'READY' vom ESP32...";
 
-                // 2. AUF "READY" WARTEN (Synchronisation)
+                // AUF "READY" WARTEN
                 const textDecoder = new TextDecoderStream();
                 const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
                 reader = textDecoder.readable.getReader();
-
-                let readyReceived = false;
                 let buffer = "";
+                let readyReceived = false;
 
-                // Lese Schleife bis READY kommt oder Timeout (5s)
-                // FIX: Sauberer Timeout-Mechanismus, der den Port nicht blockiert
                 const timeoutPromise = new Promise((_, reject) => {
                     setTimeout(() => reject(new Error("Timeout: Kein 'READY' vom ESP32 empfangen.")), 5000);
                 });
 
                 try {
-                    // Warte parallel auf Daten ODER Timeout
                     await Promise.race([
                         (async () => {
                             while (true) {
@@ -132,7 +118,7 @@
                                     debugOutput.textContent += value;
                                     if (buffer.includes("READY")) {
                                         readyReceived = true;
-                                        return; // Erfolg
+                                        return;
                                     }
                                 }
                             }
@@ -140,22 +126,21 @@
                         timeoutPromise
                     ]);
                 } catch (error) {
-                    // Timeout ist aufgetreten
-                    console.error("Timeout beim Warten auf READY");
+                    throw error;
                 } finally {
-                    // WICHTIG: Reader IMMER freigeben
-                    await reader.cancel();
-                    reader.releaseLock();
+                    if (reader) {
+                        await reader.cancel();
+                        reader.releaseLock();
+                    }
                 }
 
-                if (!readyReceived) throw new Error("Verbindung abgebrochen oder Timeout.");
+                if (!readyReceived) throw new Error("Verbindung abgebrochen bevor READY kam.");
 
-                statusDiv.innerText = "ESP32 ist bereit! Sende Konfiguration...";
+                statusDiv.innerText = "ESP32 bereit! Sende Konfiguration...";
 
-                // 3. DATEN PAKET BAUEN
+                // DATEN SENDEN
                 const tid = document.getElementById('tid').value;
                 const pin = document.getElementById('pin').value;
-                // WICHTIG: https:// entfernen, falls der User es eingegeben hat
                 const cleanHost = host.replace("https://", "").replace("/", "");
                 const dataStr = `${tid}|${pin}|${secret}|${cleanHost}|${ssid}|${pass}`;
 
@@ -174,25 +159,23 @@
 
                 console.log("Sende Paket (Hex):", packet);
 
-                // 4. SENDEN
                 writer = port.writable.getWriter();
                 await writer.write(packet);
                 writer.releaseLock();
 
-                statusDiv.innerText = "Konfiguration GESENDET! Prüfe das Log unten.";
+                // FIX: KEIN port.close() HIER! Wir warten auf den Reset des ESP32.
+                statusDiv.innerText = "Konfiguration GESENDET! Das Gerät sollte gleich neu starten.";
                 statusDiv.style.color = "green";
 
             } catch (err) {
                 console.error(err);
                 statusDiv.innerText = "Fehler: " + err.message;
                 statusDiv.style.color = "red";
-                if (writer) writer.releaseLock();
-                if (reader) reader.releaseLock();
-            } finally {
-                if (port && port.readable) {
-                    await port.close();
-                    console.log("Port geschlossen.");
-                }
+                // Versuche Locks freizugeben, falls möglich
+                if (writer && writer.locked) writer.releaseLock();
+                if (reader && reader.locked) reader.releaseLock();
+                // Im Fehlerfall versuchen wir zu schließen
+                if (port && port.readable) await port.close().catch(e => console.warn("Close ignoriert:", e));
             }
         });
     });
