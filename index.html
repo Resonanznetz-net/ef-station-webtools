@@ -3,24 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v9.0 | Flash & Config</title>
+    <title>Triton Cockpit v11 | Dark Mode</title>
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
     <style>
+        /* --- DARK MODE THEME --- */
         :root {
-            --primary: #2563eb;
-            --success: #16a34a;
-            --bg: #f8fafc;
-            --card-bg: #ffffff;
-            --text: #1e293b;
-            --border: #e2e8f0;
-            --log-bg: #0f172a;
-            --log-text: #22c55e;
+            --bg-app: #0f172a;       /* Sehr dunkles Blau */
+            --bg-card: #1e293b;      /* Dunkles Slate */
+            --bg-input: #334155;     /* Eingabefelder */
+            --text-main: #f1f5f9;    /* Helles Weiß */
+            --text-muted: #94a3b8;   /* Grau */
+
+            --primary: #3b82f6;      /* Helles Blau */
+            --primary-hover: #60a5fa;
+            --success: #22c55e;      /* Neon Grün */
+            --error: #ef4444;        /* Helles Rot */
+
+            --log-bg: #020617;       /* Fast Schwarz */
+            --border: #475569;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-app);
+            color: var(--text-main);
             margin: 0;
             padding: 20px;
             min-height: 100vh;
@@ -29,273 +35,218 @@
             flex-direction: column;
         }
 
-        /* Header & Profiles */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
-
-        .profile-bar {
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
-        select { padding: 8px; border-radius: 4px; border: 1px solid var(--border); min-width: 150px; }
-
-        /* Main Grid */
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-            flex: 1;
-            min-height: 0;
-        }
-
-        @media (max-width: 900px) {
-            .dashboard {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        .card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-        }
-
-        h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 2px solid var(--bg); padding-bottom: 10px; margin-bottom: 20px; }
-
-        /* Left Column: Flash */
-        .flash-container {
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            flex: 1;
-        }
-
-        esp-web-install-button {
-            margin: 20px 0;
-            display: block;
-        }
-
-        .status-display {
-            font-size: 1.2rem;
-            font-weight: bold;
-            color: var(--text);
-            margin-top: 20px;
-            padding: 15px;
-            background: var(--bg);
-            border-radius: 8px;
-            width: 80%;
-        }
-
-        /* Right Column: Config */
-        .form-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-        }
-
-        .full-width { grid-column: span 2; }
-
-        @media (max-width: 600px) {
-            .form-grid {
-                grid-template-columns: 1fr;
-            }
-            .full-width { grid-column: span 1; }
-        }
-
-        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #64748b; }
-        input, textarea {
-            width: 100%;
-            padding: 10px;
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            box-sizing: border-box;
-            font-size: 0.9rem;
-        }
-        input:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
-
-        input[readonly] { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
-
-        .btn-primary {
-            background-color: var(--primary);
-            color: white;
-            border: none;
-            padding: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: all 0.2s;
-            margin-top: 20px;
-            width: 100%;
-        }
-
-        .btn-primary:hover { background-color: #1d4ed8; }
-        .btn-primary:disabled { background-color: #cbd5e1; cursor: not-allowed; }
-
-        .btn-small {
-            padding: 6px 12px;
-            font-size: 0.8rem;
-            cursor: pointer;
-            border: 1px solid var(--border);
-            background: white;
-            border-radius: 4px;
-        }
-        .btn-small:hover { background: var(--bg); }
-
-        /* Log Section */
-        #log-container {
-            margin-top: 20px;
-            background: var(--log-bg);
-            border-radius: 8px;
-            padding: 15px;
-            height: 200px;
-            overflow-y: auto;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 0.85rem;
-            color: var(--log-text);
-            border: 1px solid #334155;
-        }
-
-        .log-entry { margin: 2px 0; padding: 2px 0; border-bottom: 1px solid #1e293b; }
-        .log-time { color: #64748b; margin-right: 10px; }
-        .log-info { color: #3b82f6; }
-        .log-error { color: #ef4444; }
-        .log-success { color: #22c55e; }
-
-        /* Pulse Animation */
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
-            70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
-        }
-
-        .pulse-animation {
-            animation: pulse 1.5s infinite;
-        }
-
         /* Browser Warning */
         .browser-warning {
-            background: #fef3c7;
-            border: 2px solid #f59e0b;
+            background: #451a03;
+            border: 2px solid var(--error);
             border-radius: 8px;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
         }
-        .browser-warning h2 { color: #92400e; border: none; }
+        .browser-warning h2 { color: var(--error); margin: 0 0 10px 0; border: none; }
+
+        /* Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); letter-spacing: 1px; }
+
+        /* Profile Controls */
+        .profile-bar { display: flex; gap: 10px; align-items: center; }
+        select {
+            background: var(--bg-input); color: white; border: 1px solid var(--border);
+            padding: 8px; border-radius: 4px; outline: none; min-width: 150px;
+        }
+        .btn-icon {
+            background: var(--bg-input); border: 1px solid var(--border); color: white;
+            cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: 0.2s;
+        }
+        .btn-icon:hover { background: var(--primary); border-color: var(--primary); }
+
+        /* --- LAYOUT: 70% Config / 30% Flash --- */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 2.5fr; /* Flash klein, Config groß */
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+        @media (max-width: 900px) { .dashboard { grid-template-columns: 1fr; } }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+
+        h2 {
+            margin-top: 0; font-size: 1.1rem; color: var(--text-muted);
+            text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* Inputs */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+        .full-width { grid-column: span 2; }
+        @media (max-width: 600px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .full-width { grid-column: span 1; }
+        }
+
+        label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; color: var(--text-muted); }
+        input, textarea {
+            width: 100%; padding: 12px; background: var(--bg-input);
+            border: 1px solid var(--border); border-radius: 4px; color: white;
+            box-sizing: border-box; font-family: monospace; font-size: 0.95rem;
+        }
+        input:focus, textarea:focus { border-color: var(--primary); outline: none; }
+        input[readonly] { background: #1e293b; color: #64748b; cursor: not-allowed; }
+
+        /* --- BUTTONS --- */
+        .btn-action {
+            width: 100%; padding: 15px; border: none; border-radius: 6px;
+            font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 20px;
+            transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
+        }
+
+        /* Config Button (Main Action) */
+        .btn-config { background: var(--primary); color: white; }
+        .btn-config:hover:not(:disabled) { background: var(--primary-hover); }
+        .btn-config:disabled { background: var(--bg-input); color: #64748b; cursor: not-allowed; opacity: 0.7; }
+
+        /* Flash Area (Small) */
+        .flash-sidebar {
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+
+        esp-web-install-button { width: 100%; margin: 15px 0; }
+
+        .flash-status {
+            font-size: 0.9rem; font-weight: bold; margin-top: 10px; min-height: 1.2em;
+        }
+
+        /* --- LOG MONITOR (High Contrast & Resizable) --- */
+        #log-container {
+            margin-top: 20px;
+            background: var(--log-bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 15px;
+
+            /* Größer & Verstellbar */
+            height: 350px;
+            min-height: 150px;
+            resize: vertical;
+            overflow: auto;
+
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #e2e8f0;
+        }
+
+        .log-time { color: #64748b; margin-right: 10px; font-size: 0.8rem; }
+        .log-sys { color: #38bdf8; /* Cyan */ }
+        .log-ok  { color: #4ade80; /* Bright Green */ font-weight: bold; }
+        .log-err { color: #f87171; /* Bright Red */ font-weight: bold; }
+
+        /* Animation Pulse */
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+        }
+        .pulse-active {
+            animation: pulse-glow 2s infinite;
+            background: var(--success) !important;
+            color: black !important;
+        }
     </style>
 </head>
 <body>
 
     <div id="browser-warning" class="browser-warning" style="display: none;">
         <h2>⚠️ Browser nicht unterstützt</h2>
-        <p>Web Serial API wird von deinem Browser nicht unterstützt.<br>
+        <p>Web Serial API wird nicht unterstützt.<br>
         Bitte nutze <strong>Chrome</strong> oder <strong>Edge</strong> auf dem Desktop.</p>
     </div>
 
     <header>
-        <h1>⚡ Triton Cockpit</h1>
+        <h1>⚡ TRITON COCKPIT</h1>
         <div class="profile-bar">
-            <label style="margin:0; display:inline;">Profil:</label>
-            <select id="profile-select">
-                <option value="">-- Neu --</option>
-            </select>
-            <button class="btn-small" id="btn-save-profile" title="Profil speichern">💾</button>
-            <button class="btn-small" id="btn-del-profile" title="Profil löschen">🗑️</button>
+            <label style="margin:0; color: var(--text-muted);">Profil:</label>
+            <select id="profile-select"><option value="">-- Profil wählen --</option></select>
+            <button class="btn-icon" id="btn-save" title="Speichern">💾</button>
+            <button class="btn-icon" id="btn-del" title="Löschen">🗑️</button>
         </div>
     </header>
 
     <div class="dashboard" id="main-dashboard">
-        <div class="card">
+
+        <!-- LINKS: Flash (Schritt 1) -->
+        <div class="card flash-sidebar">
             <h2>1. Installation</h2>
-            <div class="flash-container">
-                <p>Verbinde den ESP32-C3 via USB.</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
+                ESP32 via USB verbinden,<br>dann installieren klicken.
+            </p>
 
-                <esp-web-install-button
-                    id="install-button"
-                    manifest="manifest.json">
-                    <button slot="activate" class="btn-primary" style="width: auto;">Verbinden & Installieren</button>
-                </esp-web-install-button>
+            <esp-web-install-button id="install-button" manifest="manifest.json"></esp-web-install-button>
 
-                <div class="status-display" id="flash-status">
-                    Warte auf Gerät...
-                </div>
+            <div id="flash-status" class="flash-status" style="color: var(--text-muted);">Bereit.</div>
 
-                <p style="font-size: 0.8rem; color: #64748b; margin-top: 30px;">
-                    Hinweis: Während die Installation läuft, kannst du rechts bereits die Daten ausfüllen.
-                </p>
-            </div>
+            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 20px;">
+                Nach der Installation<br>→ Konfiguration rechts ausfüllen
+            </p>
         </div>
 
+        <!-- RECHTS: Config (Schritt 2) -->
         <div class="card">
             <h2>2. Konfiguration</h2>
             <div class="form-grid">
-                <div>
-                    <label>Tenant ID (Gruppe)</label>
-                    <input type="text" id="tid" readonly>
-                </div>
-                <div>
-                    <label>Claim PIN</label>
-                    <input type="text" id="pin" readonly>
-                </div>
+                <div><label>Tenant ID</label><input type="text" id="tid" readonly></div>
+                <div><label>Claim PIN</label><input type="text" id="pin" readonly></div>
 
-                <div class="full-width">
-                    <label>Tags (Kategorien, kommasepariert)</label>
-                    <input type="text" id="tags" placeholder="z.B. wohnzimmer, spots, led">
-                </div>
-
-                <div class="full-width">
-                    <label>KI-Kontext (Knowledge Injection)</label>
-                    <textarea id="desc" rows="2" placeholder="z.B. Licht über dem Esstisch. Warmweiß bevorzugt."></textarea>
-                </div>
+                <div class="full-width"><label>Tags</label><input type="text" id="tags" placeholder="z.B. wohnzimmer, decke"></div>
+                <div class="full-width"><label>KI-Anweisung</label><input type="text" id="desc" placeholder="Kontext für Gemini..."></div>
 
                 <div class="full-width" style="border-top: 1px solid var(--border); margin: 10px 0;"></div>
 
-                <div>
-                    <label>WiFi SSID</label>
-                    <input type="text" id="ssid" placeholder="WLAN Name">
-                </div>
-                <div>
-                    <label>WiFi Passwort</label>
-                    <input type="password" id="pass" placeholder="WLAN Key">
-                </div>
+                <div><label>WiFi SSID</label><input type="text" id="ssid" placeholder="WLAN Name"></div>
+                <div><label>Passwort</label><input type="password" id="pass" placeholder="WLAN Key"></div>
 
                 <div class="full-width">
                     <details>
-                        <summary style="cursor: pointer; color: var(--primary); font-size: 0.85rem;">Erweiterte Server-Einstellungen</summary>
-                        <div style="margin-top: 10px;">
-                            <label>DB Secret</label>
-                            <input type="password" id="secret" value="">
-                            <label style="margin-top: 10px;">Firebase Host</label>
-                            <input type="text" id="host" value="triton-iot-default-rtdb.europe-west1.firebasedatabase.app">
+                        <summary style="color: var(--primary); cursor: pointer; margin-top:5px; font-size: 0.85rem;">Erweiterte Datenbank-Settings</summary>
+                        <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">
+                            <label>Secret</label><input type="password" id="secret">
+                            <label style="margin-top:8px;">Host</label><input type="text" id="host" value="triton-iot-default-rtdb.europe-west1.firebasedatabase.app">
                         </div>
                     </details>
                 </div>
             </div>
 
-            <button id="btn-configure" class="btn-primary">Konfiguration schreiben</button>
+            <button id="btn-configure" class="btn-action btn-config" disabled>
+                ⏳ Warte auf Flash...
+            </button>
         </div>
+
     </div>
 
     <div id="log-container">
-        <div class="log-entry">--- Triton System Monitor bereit ---</div>
+        <div><span class="log-time">SYSTEM</span><span class="log-ok">Dark Mode Cockpit v11 geladen.</span></div>
     </div>
 
 <script>
@@ -305,7 +256,7 @@
             document.getElementById('browser-warning').style.display = 'block';
             document.getElementById('main-dashboard').style.opacity = '0.5';
             document.getElementById('main-dashboard').style.pointerEvents = 'none';
-            log("Browser unterstützt Web Serial nicht!", 'error');
+            log("Browser unterstützt Web Serial nicht!", 'err');
             return;
         }
 
@@ -317,194 +268,116 @@
             document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
         }
 
-        log("System initialisiert. Bereit zum Flashen.", 'success');
+        log("System bereit. Starte mit Schritt 1: Flash.", 'ok');
     };
 
-    // --- 1. LOG MANAGER ---
-    const logContainer = document.getElementById('log-container');
-    function log(msg, type = 'info') {
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
+    // --- LOGGER ---
+    const logDiv = document.getElementById('log-container');
+    function log(msg, type = 'sys') {
         const time = new Date().toLocaleTimeString();
+        const el = document.createElement('div');
+        let colorClass = 'log-sys';
+        if (type === 'ok') colorClass = 'log-ok';
+        if (type === 'err') colorClass = 'log-err';
 
-        let colorClass = 'log-info';
-        if (type === 'error') colorClass = 'log-error';
-        if (type === 'success') colorClass = 'log-success';
-        if (type === 'system') colorClass = 'log-info';
-
-        entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${msg}</span>`;
-        logContainer.appendChild(entry);
-        logContainer.scrollTop = logContainer.scrollHeight;
+        el.innerHTML = `<span class="log-time">${time}</span><span class="${colorClass}">${msg}</span>`;
+        logDiv.appendChild(el);
+        logDiv.scrollTop = logDiv.scrollHeight;
     }
 
-    // --- 2. PROFILE MANAGER ---
-    const profileSelect = document.getElementById('profile-select');
-    const fields = ['ssid', 'pass', 'host', 'secret', 'tags', 'desc']; // TID/PIN werden nicht gespeichert (Unique pro Device)
-
-    function loadProfiles() {
-        const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        profileSelect.innerHTML = '<option value="">-- Neu / Manuell --</option>';
-        Object.keys(profiles).forEach(name => {
-            const opt = document.createElement('option');
-            opt.value = name;
-            opt.innerText = name;
-            profileSelect.appendChild(opt);
-        });
-    }
-
-    function saveCurrentProfile() {
-        const name = prompt("Profilname eingeben (z.B. 'Zuhause' oder 'Werkstatt'):");
-        if (!name) return;
-
-        const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        const data = {};
-        fields.forEach(id => data[id] = document.getElementById(id).value);
-
-        profiles[name] = data;
-        localStorage.setItem('triton_profiles', JSON.stringify(profiles));
-        loadProfiles();
-        profileSelect.value = name;
-        log(`Profil '${name}' gespeichert.`, 'success');
-    }
-
-    function deleteCurrentProfile() {
-        const name = profileSelect.value;
-        if (!name) {
-            log("Kein Profil ausgewählt.", 'error');
-            return;
-        }
-        if (confirm(`Profil '${name}' wirklich löschen?`)) {
-            const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-            delete profiles[name];
-            localStorage.setItem('triton_profiles', JSON.stringify(profiles));
-            loadProfiles();
-            log(`Profil '${name}' gelöscht.`, 'system');
-        }
-    }
-
-    profileSelect.addEventListener('change', () => {
-        const name = profileSelect.value;
-        if (!name) return;
-
-        const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        const data = profiles[name];
-        if (data) {
-            fields.forEach(id => {
-                const el = document.getElementById(id);
-                if (el) el.value = data[id] || '';
-            });
-            log(`Profil '${name}' geladen.`, 'system');
-        }
-    });
-
-    document.getElementById('btn-save-profile').addEventListener('click', saveCurrentProfile);
-    document.getElementById('btn-del-profile').addEventListener('click', deleteCurrentProfile);
-
-
-    // --- 4. FLASH HANDLER (LEFT SIDE) ---
+    // --- ELEMENTS ---
     const installBtn = document.getElementById('install-button');
-    const flashStatus = document.getElementById('flash-status');
     const configBtn = document.getElementById('btn-configure');
+    const flashStatus = document.getElementById('flash-status');
 
+    // --- 1. FLASH LISTENER ---
     installBtn.addEventListener('state-changed', (ev) => {
-        const state = ev.detail.state;
-        log(`Flash Status: ${state}`, 'system');
+        const s = ev.detail.state;
+        log(`Flash Status: ${s}`, 'sys');
 
-        switch (state) {
+        switch (s) {
             case 'initializing':
                 flashStatus.innerText = "🔍 Initialisiere...";
+                flashStatus.style.color = "var(--primary)";
                 break;
             case 'manifest':
                 flashStatus.innerText = "📄 Manifest geladen";
                 break;
             case 'preparing':
-                flashStatus.innerText = "⚙️ Bereite Installation vor...";
-                break;
             case 'erasing':
                 flashStatus.innerText = "🗑️ Lösche Flash...";
+                flashStatus.style.color = "var(--primary)";
                 break;
             case 'writing':
-                flashStatus.innerText = "📝 Schreibe Firmware...";
-                flashStatus.style.color = "#2563eb";
+            case 'installing':
+                flashStatus.innerText = "⏳ Installiere...";
+                flashStatus.style.color = "var(--primary)";
                 break;
             case 'finished':
-                flashStatus.innerText = "✅ Installation fertig!";
-                flashStatus.style.color = "#16a34a";
-                log("Firmware installiert. Warte auf Reset...", 'success');
-                // Optischer Hinweis auf Config Button
-                configBtn.innerText = "▶ Verbinden & Konfiguration senden";
-                configBtn.style.background = "#16a34a";
-                configBtn.classList.add('pulse-animation');
+            case 'install_successful':
+                flashStatus.innerText = "✅ Flash OK";
+                flashStatus.style.color = "var(--success)";
+                log("Firmware installiert. Config-Button aktiviert.", 'ok');
+
+                // AKTIVIERE CONFIG BUTTON
+                configBtn.innerText = "▶ JETZT KONFIGURATION SCHREIBEN";
+                configBtn.classList.add('pulse-active');
+                configBtn.disabled = false;
                 break;
             case 'error':
-                flashStatus.innerText = "❌ Fehler bei Installation";
-                flashStatus.style.color = "#ef4444";
-                log("Fehler bei Installation: " + (ev.detail.message || "Unbekannt"), 'error');
+                flashStatus.innerText = "❌ Fehler";
+                flashStatus.style.color = "var(--error)";
+                log("Flash-Fehler: " + (ev.detail.message || ev.detail.error || "Unbekannt"), 'err');
                 break;
         }
     });
 
-
-    // --- 5. CONFIG HANDLER (RIGHT SIDE) ---
-    configBtn.addEventListener('click', async () => {
-        // Stop Pulse Animation
-        configBtn.classList.remove('pulse-animation');
-
-        // Daten sammeln
-        const secret = document.getElementById('secret').value;
-        const host = document.getElementById('host').value;
+    // --- 2. CONFIG ACTION ---
+    configBtn.onclick = async () => {
+        // Validation
         const ssid = document.getElementById('ssid').value;
         const pass = document.getElementById('pass').value;
-        let tags = document.getElementById('tags').value.replace(/\|/g, ","); // Pipe verboten
-        let desc = document.getElementById('desc').value.replace(/\|/g, " ");
 
-        // Fallbacks
-        if (!tags) tags = "neu";
-        if (!desc) desc = "Keine Beschreibung";
-
-        // Validierung
         if (!ssid || !pass) {
-            log("Fehler: SSID und Passwort fehlen!", 'error');
+            log("Fehler: SSID & Passwort fehlen!", 'err');
             alert("Bitte WiFi Daten eingeben.");
             return;
         }
 
-        log("Starte serielle Verbindung...", 'system');
+        configBtn.classList.remove('pulse-active');
+        configBtn.disabled = true;
 
-        let port;
-        let writer;
-        let reader;
+        log("Starte Serial Handshake...", 'sys');
+
+        let port = null;
+        let reader = null;
+        let writer = null;
 
         try {
-            // Request Port (User Gesture required here!)
+            // User gesture required
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
+            log("Port offen. Warte auf ESP Boot...", 'sys');
 
-            log("Port geöffnet. Warte auf 'READY' vom ESP...", 'system');
-            configBtn.disabled = true;
-
-            // --- READ LOOP (Wait for Ready) ---
+            // Read Loop for Ready
             const textDecoder = new TextDecoderStream();
             const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
             reader = textDecoder.readable.getReader();
 
+            // 5s Timeout Race
             let buffer = "";
-            let readyReceived = false;
-
-            // Timeout Logic (5s)
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error("Timeout: Kein READY empfangen. Bitte Reset am Gerät drücken!")), 5000)
+            const timeout = new Promise((_, rej) =>
+                setTimeout(() => rej(new Error("Timeout: Kein READY Signal. Bitte Reset am ESP drücken!")), 5000)
             );
 
-            const readLoop = async () => {
+            const readFn = async () => {
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
                     if (value) {
                         buffer += value;
-                        // Log serial output
                         if (value.trim()) {
-                            log(`[ESP] ${value.trim()}`, 'info');
+                            log(`[ESP] ${value.trim()}`, 'sys');
                         }
                         if (buffer.includes("READY")) return true;
                     }
@@ -512,73 +385,128 @@
             };
 
             try {
-                // Race: Entweder READY kommt oder Timeout
-                await Promise.race([readLoop(), timeout]);
-                readyReceived = true;
-                log("ESP32 ist BEREIT.", 'success');
+                await Promise.race([readFn(), timeout]);
+                log("ESP Ready erkannt.", 'ok');
             } catch (e) {
-                log(e.message, 'error');
-                log("Tipp: Drücke den RESET-Knopf am ESP32, während dieses Log läuft.", 'system');
-                // Wir brechen hier NICHT ab, sondern versuchen trotzdem zu senden
+                log(e.message, 'err');
+                log("Tipp: Reset-Knopf am ESP drücken, dann erneut versuchen.", 'sys');
             }
 
             // Reader freigeben für Write
             try {
                 reader.releaseLock();
-            } catch (e) {
-                // Ignore
-            }
+                reader = null;
+            } catch (e) { /* ignore */ }
 
-            // --- DATA PREP ---
+            // Write Data
             const tid = document.getElementById('tid').value;
             const pin = document.getElementById('pin').value;
-            const cleanHost = host.replace("https://", "").replace(/\//g, "");
+            const secret = document.getElementById('secret').value;
+            const host = document.getElementById('host').value.replace("https://", "").replace(/\/$/g, "");
+            const tags = document.getElementById('tags').value.replace(/\|/g, ",") || "neu";
+            const desc = document.getElementById('desc').value.replace(/\|/g, " ") || "n/a";
 
-            // Protokoll V2 String
-            const dataStr = `${tid}|${pin}|${secret}|${cleanHost}|${ssid}|${pass}|${tags}|${desc}`;
+            const payload = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}|${tags}|${desc}`;
+            const enc = new TextEncoder().encode(payload);
 
-            // Encoding & Checksum
-            const encoder = new TextEncoder();
-            const dataBytes = encoder.encode(dataStr);
-            const len = dataBytes.length;
+            // Checksum V2
+            let sum = 0x04 + enc.length;
+            for (let b of enc) sum += b;
 
-            let sum = 0x04 + len;
-            for (let b of dataBytes) sum += b;
-            const checksum = sum & 0xFF;
-
-            const packet = new Uint8Array(2 + len + 1);
+            const packet = new Uint8Array(enc.length + 3);
             packet[0] = 0x04;
-            packet[1] = len;
-            packet.set(dataBytes, 2);
-            packet[len + 2] = checksum;
+            packet[1] = enc.length;
+            packet.set(enc, 2);
+            packet[packet.length - 1] = sum & 0xFF;
 
-            log(`Sende Config-Paket (${len} Bytes)...`, 'system');
+            log(`Sende Config-Paket (${enc.length} Bytes)...`, 'sys');
 
             writer = port.writable.getWriter();
             await writer.write(packet);
             writer.releaseLock();
+            writer = null;
 
-            log("✅ Konfiguration erfolgreich gesendet!", 'success');
+            log("✅ CONFIG GESENDET!", 'ok');
+
+            // Reset UI for next device
             configBtn.innerText = "✓ Fertig / Nächstes Gerät";
-            configBtn.style.background = "#2563eb";
+            configBtn.style.background = "#334155";
+            configBtn.style.color = "#94a3b8";
 
-            // Neue ID/PIN für nächstes Gerät generieren
+            // New ID/PIN for next device
             document.getElementById('tid').value = "grp_" + Math.random().toString(36).substring(2, 6);
             document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
-            log("Neue Tenant-ID und PIN generiert für nächstes Gerät.", 'system');
+            log("Neue Tenant-ID und PIN generiert.", 'sys');
 
-        } catch (err) {
-            log("Serial Error: " + err.message, 'error');
+        } catch (e) {
+            log("Serial Fehler: " + e.message, 'err');
         } finally {
+            // Cleanup
             try {
                 if (reader) reader.releaseLock();
             } catch (e) { /* ignore */ }
             try {
+                if (writer) writer.releaseLock();
+            } catch (e) { /* ignore */ }
+            try {
                 if (port) await port.close();
             } catch (e) { /* ignore */ }
+
             configBtn.disabled = false;
         }
-    });
+    };
+
+    // --- PROFILE UTILS ---
+    const pSel = document.getElementById('profile-select');
+    const pFields = ['ssid', 'pass', 'host', 'secret', 'tags', 'desc'];
+
+    function loadProfiles() {
+        const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+        pSel.innerHTML = '<option value="">-- Profil wählen --</option>';
+        Object.keys(d).forEach(k => {
+            const o = document.createElement('option');
+            o.value = k;
+            o.innerText = k;
+            pSel.appendChild(o);
+        });
+    }
+
+    document.getElementById('btn-save').onclick = () => {
+        const n = prompt("Profilname (z.B. 'Zuhause' oder 'Werkstatt'):");
+        if (!n) return;
+        const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+        d[n] = {};
+        pFields.forEach(f => d[n][f] = document.getElementById(f).value);
+        localStorage.setItem('triton_profiles', JSON.stringify(d));
+        loadProfiles();
+        pSel.value = n;
+        log(`Profil '${n}' gespeichert.`, 'ok');
+    };
+
+    document.getElementById('btn-del').onclick = () => {
+        const n = pSel.value;
+        if (!n) {
+            log("Kein Profil ausgewählt.", 'err');
+            return;
+        }
+        if (confirm(`Profil '${n}' wirklich löschen?`)) {
+            const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+            delete d[n];
+            localStorage.setItem('triton_profiles', JSON.stringify(d));
+            loadProfiles();
+            log(`Profil '${n}' gelöscht.`, 'sys');
+        }
+    };
+
+    pSel.onchange = () => {
+        const n = pSel.value;
+        if (!n) return;
+        const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+        if (d[n]) {
+            pFields.forEach(f => document.getElementById(f).value = d[n][f] || '');
+            log(`Profil '${n}' geladen.`, 'sys');
+        }
+    };
 </script>
 </body>
 </html>
