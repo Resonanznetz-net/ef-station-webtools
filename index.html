@@ -1,183 +1,583 @@
 <!DOCTYPE html>
-<html>
+<html lang="de">
 <head>
-    <title>Triton Flash & Configure</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Triton Cockpit v9.0 | Flash & Config</title>
     <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
     <style>
-        body { font-family: sans-serif; padding: 2rem; }
-        .hidden { display: none; }
-        button { padding: 10px 20px; font-size: 16px; margin-top: 20px; cursor: pointer; }
+        :root {
+            --primary: #2563eb;
+            --success: #16a34a;
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --border: #e2e8f0;
+            --log-bg: #0f172a;
+            --log-text: #22c55e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header & Profiles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); }
+
+        .profile-bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        select { padding: 8px; border-radius: 4px; border: 1px solid var(--border); min-width: 150px; }
+
+        /* Main Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+        }
+
+        @media (max-width: 900px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        h2 { margin-top: 0; font-size: 1.2rem; border-bottom: 2px solid var(--bg); padding-bottom: 10px; margin-bottom: 20px; }
+
+        /* Left Column: Flash */
+        .flash-container {
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+        }
+
+        esp-web-install-button {
+            margin: 20px 0;
+            display: block;
+        }
+
+        .status-display {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--text);
+            margin-top: 20px;
+            padding: 15px;
+            background: var(--bg);
+            border-radius: 8px;
+            width: 80%;
+        }
+
+        /* Right Column: Config */
+        .form-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .full-width { grid-column: span 2; }
+
+        @media (max-width: 600px) {
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            .full-width { grid-column: span 1; }
+        }
+
+        label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 5px; color: #64748b; }
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-size: 0.9rem;
+        }
+        input:focus, textarea:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+        input[readonly] { background-color: #f1f5f9; color: #94a3b8; cursor: not-allowed; }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            margin-top: 20px;
+            width: 100%;
+        }
+
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-primary:disabled { background-color: #cbd5e1; cursor: not-allowed; }
+
+        .btn-small {
+            padding: 6px 12px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            background: white;
+            border-radius: 4px;
+        }
+        .btn-small:hover { background: var(--bg); }
+
+        /* Log Section */
+        #log-container {
+            margin-top: 20px;
+            background: var(--log-bg);
+            border-radius: 8px;
+            padding: 15px;
+            height: 200px;
+            overflow-y: auto;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            color: var(--log-text);
+            border: 1px solid #334155;
+        }
+
+        .log-entry { margin: 2px 0; padding: 2px 0; border-bottom: 1px solid #1e293b; }
+        .log-time { color: #64748b; margin-right: 10px; }
+        .log-info { color: #3b82f6; }
+        .log-error { color: #ef4444; }
+        .log-success { color: #22c55e; }
+
+        /* Pulse Animation */
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0.7); }
+            70% { transform: scale(1.02); box-shadow: 0 0 0 10px rgba(22, 163, 74, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(22, 163, 74, 0); }
+        }
+
+        .pulse-animation {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Browser Warning */
+        .browser-warning {
+            background: #fef3c7;
+            border: 2px solid #f59e0b;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .browser-warning h2 { color: #92400e; border: none; }
     </style>
 </head>
 <body>
-    <h1>Triton v8.4 Flasher</h1>
 
-    <!-- Step 1: Flash Firmware -->
-<div id="flash-section">
-        <esp-web-install-button
-            id="install-button"
-            manifest="manifest.json"
-        ></esp-web-install-button>
-        <p>Status: <span id="install-state">-</span></p>
+    <div id="browser-warning" class="browser-warning" style="display: none;">
+        <h2>⚠️ Browser nicht unterstützt</h2>
+        <p>Web Serial API wird von deinem Browser nicht unterstützt.<br>
+        Bitte nutze <strong>Chrome</strong> oder <strong>Edge</strong> auf dem Desktop.</p>
     </div>
 
-    <button id="btn-force-show" style="margin-top: 40px; background: #f0f0f0; color: #666; font-size: 0.8em; border: 1px solid #ccc;">
-        ⚠️ Manuelle Konfiguration öffnen (falls Popup fehlt)
-    </button>
+    <header>
+        <h1>⚡ Triton Cockpit</h1>
+        <div class="profile-bar">
+            <label style="margin:0; display:inline;">Profil:</label>
+            <select id="profile-select">
+                <option value="">-- Neu --</option>
+            </select>
+            <button class="btn-small" id="btn-save-profile" title="Profil speichern">💾</button>
+            <button class="btn-small" id="btn-del-profile" title="Profil löschen">🗑️</button>
+        </div>
+    </header>
 
-    <div id="config-section" class="hidden">
-        <h2>Configuration</h2>
-        <p>Firmware installed. Now configure the device.</p>
+    <div class="dashboard" id="main-dashboard">
+        <div class="card">
+            <h2>1. Installation</h2>
+            <div class="flash-container">
+                <p>Verbinde den ESP32-C3 via USB.</p>
 
-        <label>Tenant ID (Auto): <input type="text" id="tid" readonly></label><br><br>
-        <label>Claim PIN (Auto): <input type="text" id="pin" readonly></label><br><br>
-        <label>DB Secret: <input type="password" id="secret"></label><br><br>
-        <label>Firebase Host: <input type="text" id="host"></label><br><br>
-        <label>WiFi SSID: <input type="text" id="ssid"></label><br><br>
-        <label>WiFi Password: <input type="password" id="pass"></label><br><br>
+                <esp-web-install-button
+                    id="install-button"
+                    manifest="manifest.json">
+                    <button slot="activate" class="btn-primary" style="width: auto;">Verbinden & Installieren</button>
+                </esp-web-install-button>
 
-        <button id="btn-configure">Configure Device</button>
-        <div id="config-status"></div>
-        <h3>Debug Log:</h3>
-        <pre id="debug-output" style="background: #f0f0f0; padding: 10px; max-height: 200px; overflow-y: auto;"></pre>
+                <div class="status-display" id="flash-status">
+                    Warte auf Gerät...
+                </div>
+
+                <p style="font-size: 0.8rem; color: #64748b; margin-top: 30px;">
+                    Hinweis: Während die Installation läuft, kannst du rechts bereits die Daten ausfüllen.
+                </p>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>2. Konfiguration</h2>
+            <div class="form-grid">
+                <div>
+                    <label>Tenant ID (Gruppe)</label>
+                    <input type="text" id="tid" readonly>
+                </div>
+                <div>
+                    <label>Claim PIN</label>
+                    <input type="text" id="pin" readonly>
+                </div>
+
+                <div class="full-width">
+                    <label>Tags (Kategorien, kommasepariert)</label>
+                    <input type="text" id="tags" placeholder="z.B. wohnzimmer, spots, led">
+                </div>
+
+                <div class="full-width">
+                    <label>KI-Kontext (Knowledge Injection)</label>
+                    <textarea id="desc" rows="2" placeholder="z.B. Licht über dem Esstisch. Warmweiß bevorzugt."></textarea>
+                </div>
+
+                <div class="full-width" style="border-top: 1px solid var(--border); margin: 10px 0;"></div>
+
+                <div>
+                    <label>WiFi SSID</label>
+                    <input type="text" id="ssid" placeholder="WLAN Name">
+                </div>
+                <div>
+                    <label>WiFi Passwort</label>
+                    <input type="password" id="pass" placeholder="WLAN Key">
+                </div>
+
+                <div class="full-width">
+                    <details>
+                        <summary style="cursor: pointer; color: var(--primary); font-size: 0.85rem;">Erweiterte Server-Einstellungen</summary>
+                        <div style="margin-top: 10px;">
+                            <label>DB Secret</label>
+                            <input type="password" id="secret" value="">
+                            <label style="margin-top: 10px;">Firebase Host</label>
+                            <input type="text" id="host" value="triton-iot-default-rtdb.europe-west1.firebasedatabase.app">
+                        </div>
+                    </details>
+                </div>
+            </div>
+
+            <button id="btn-configure" class="btn-primary">Konfiguration schreiben</button>
+        </div>
+    </div>
+
+    <div id="log-container">
+        <div class="log-entry">--- Triton System Monitor bereit ---</div>
     </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const installButton = document.getElementById('install-button');
-        const configSection = document.getElementById('config-section');
-        const forceShowBtn = document.getElementById('btn-force-show');
-        const sendConfigBtn = document.getElementById('btn-configure');
-        const statusDiv = document.getElementById('config-status');
-        const debugOutput = document.getElementById('debug-output');
+    // --- 0. BROWSER CHECK ---
+    window.onload = () => {
+        if (!("serial" in navigator)) {
+            document.getElementById('browser-warning').style.display = 'block';
+            document.getElementById('main-dashboard').style.opacity = '0.5';
+            document.getElementById('main-dashboard').style.pointerEvents = 'none';
+            log("Browser unterstützt Web Serial nicht!", 'error');
+            return;
+        }
 
-        window.onload = () => {
-            document.getElementById('tid').value = "dev_" + Math.random().toString(36).substring(2, 8);
-            document.getElementById('pin').value = Math.floor(100000 + Math.random() * 900000);
-        };
+        loadProfiles();
 
-        forceShowBtn.addEventListener('click', () => {
-            configSection.classList.remove('hidden');
+        // Generiere neue ID/PIN nur wenn Felder leer
+        if (!document.getElementById('tid').value) {
+            document.getElementById('tid').value = "grp_" + Math.random().toString(36).substring(2, 6);
+            document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
+        }
+
+        log("System initialisiert. Bereit zum Flashen.", 'success');
+    };
+
+    // --- 1. LOG MANAGER ---
+    const logContainer = document.getElementById('log-container');
+    function log(msg, type = 'info') {
+        const entry = document.createElement('div');
+        entry.className = 'log-entry';
+        const time = new Date().toLocaleTimeString();
+
+        let colorClass = 'log-info';
+        if (type === 'error') colorClass = 'log-error';
+        if (type === 'success') colorClass = 'log-success';
+        if (type === 'system') colorClass = 'log-info';
+
+        entry.innerHTML = `<span class="log-time">[${time}]</span><span class="${colorClass}">${msg}</span>`;
+        logContainer.appendChild(entry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    // --- 2. PROFILE MANAGER ---
+    const profileSelect = document.getElementById('profile-select');
+    const fields = ['ssid', 'pass', 'host', 'secret', 'tags', 'desc']; // TID/PIN werden nicht gespeichert (Unique pro Device)
+
+    function loadProfiles() {
+        const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+        profileSelect.innerHTML = '<option value="">-- Neu / Manuell --</option>';
+        Object.keys(profiles).forEach(name => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.innerText = name;
+            profileSelect.appendChild(opt);
         });
+    }
 
-        installButton.addEventListener('state-change', (ev) => {
-            const state = ev.detail.state;
-            document.getElementById('install-state').innerText = state;
-            if (state === 'INSTALL_SUCCESSFUL' || state === 'OB_SUCCESS') {
-                 configSection.classList.remove('hidden');
-                 statusDiv.innerText = "Flash komplett. Bitte Gerät resetten und 'Configure Device' klicken.";
-            }
-        });
+    function saveCurrentProfile() {
+        const name = prompt("Profilname eingeben (z.B. 'Zuhause' oder 'Werkstatt'):");
+        if (!name) return;
 
-        // --- HAUPTFUNKTION: KONFIGURATION SENDEN ---
-        sendConfigBtn.addEventListener('click', async () => {
-            const secret = document.getElementById('secret').value;
-            const host = document.getElementById('host').value;
-            const ssid = document.getElementById('ssid').value;
-            const pass = document.getElementById('pass').value;
+        const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+        const data = {};
+        fields.forEach(id => data[id] = document.getElementById(id).value);
 
-            if (!secret || !host || !ssid || !pass) {
-                statusDiv.innerText = "Error: Bitte alle Felder ausfüllen!";
-                statusDiv.style.color = "red";
-                return;
-            }
+        profiles[name] = data;
+        localStorage.setItem('triton_profiles', JSON.stringify(profiles));
+        loadProfiles();
+        profileSelect.value = name;
+        log(`Profil '${name}' gespeichert.`, 'success');
+    }
 
-            statusDiv.innerText = "Warte auf Gerät... Bitte auswählen.";
-            statusDiv.style.color = "blue";
-            debugOutput.textContent = "";
+    function deleteCurrentProfile() {
+        const name = profileSelect.value;
+        if (!name) {
+            log("Kein Profil ausgewählt.", 'error');
+            return;
+        }
+        if (confirm(`Profil '${name}' wirklich löschen?`)) {
+            const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+            delete profiles[name];
+            localStorage.setItem('triton_profiles', JSON.stringify(profiles));
+            loadProfiles();
+            log(`Profil '${name}' gelöscht.`, 'system');
+        }
+    }
 
-            let port;
-            let reader;
-            let writer;
+    profileSelect.addEventListener('change', () => {
+        const name = profileSelect.value;
+        if (!name) return;
 
-            try {
-                port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200, dataTerminalReady: true, requestToSend: true });
+        const profiles = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+        const data = profiles[name];
+        if (data) {
+            fields.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = data[id] || '';
+            });
+            log(`Profil '${name}' geladen.`, 'system');
+        }
+    });
 
-                statusDiv.innerText = "Port offen. Warte auf 'READY' vom ESP32...";
+    document.getElementById('btn-save-profile').addEventListener('click', saveCurrentProfile);
+    document.getElementById('btn-del-profile').addEventListener('click', deleteCurrentProfile);
 
-                // AUF "READY" WARTEN
-                const textDecoder = new TextDecoderStream();
-                const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-                reader = textDecoder.readable.getReader();
-                let buffer = "";
-                let readyReceived = false;
 
-                const timeoutPromise = new Promise((_, reject) => {
-                    setTimeout(() => reject(new Error("Timeout: Kein 'READY' vom ESP32 empfangen.")), 5000);
-                });
+    // --- 4. FLASH HANDLER (LEFT SIDE) ---
+    const installBtn = document.getElementById('install-button');
+    const flashStatus = document.getElementById('flash-status');
+    const configBtn = document.getElementById('btn-configure');
 
-                try {
-                    await Promise.race([
-                        (async () => {
-                            while (true) {
-                                const { value, done } = await reader.read();
-                                if (done) break;
-                                if (value) {
-                                    buffer += value;
-                                    debugOutput.textContent += value;
-                                    if (buffer.includes("READY")) {
-                                        readyReceived = true;
-                                        return;
-                                    }
-                                }
-                            }
-                        })(),
-                        timeoutPromise
-                    ]);
-                } catch (error) {
-                    throw error;
-                } finally {
-                    if (reader) {
-                        await reader.cancel();
-                        reader.releaseLock();
+    installBtn.addEventListener('state-changed', (ev) => {
+        const state = ev.detail.state;
+        log(`Flash Status: ${state}`, 'system');
+
+        switch (state) {
+            case 'initializing':
+                flashStatus.innerText = "🔍 Initialisiere...";
+                break;
+            case 'manifest':
+                flashStatus.innerText = "📄 Manifest geladen";
+                break;
+            case 'preparing':
+                flashStatus.innerText = "⚙️ Bereite Installation vor...";
+                break;
+            case 'erasing':
+                flashStatus.innerText = "🗑️ Lösche Flash...";
+                break;
+            case 'writing':
+                flashStatus.innerText = "📝 Schreibe Firmware...";
+                flashStatus.style.color = "#2563eb";
+                break;
+            case 'finished':
+                flashStatus.innerText = "✅ Installation fertig!";
+                flashStatus.style.color = "#16a34a";
+                log("Firmware installiert. Warte auf Reset...", 'success');
+                // Optischer Hinweis auf Config Button
+                configBtn.innerText = "▶ Verbinden & Konfiguration senden";
+                configBtn.style.background = "#16a34a";
+                configBtn.classList.add('pulse-animation');
+                break;
+            case 'error':
+                flashStatus.innerText = "❌ Fehler bei Installation";
+                flashStatus.style.color = "#ef4444";
+                log("Fehler bei Installation: " + (ev.detail.message || "Unbekannt"), 'error');
+                break;
+        }
+    });
+
+
+    // --- 5. CONFIG HANDLER (RIGHT SIDE) ---
+    configBtn.addEventListener('click', async () => {
+        // Stop Pulse Animation
+        configBtn.classList.remove('pulse-animation');
+
+        // Daten sammeln
+        const secret = document.getElementById('secret').value;
+        const host = document.getElementById('host').value;
+        const ssid = document.getElementById('ssid').value;
+        const pass = document.getElementById('pass').value;
+        let tags = document.getElementById('tags').value.replace(/\|/g, ","); // Pipe verboten
+        let desc = document.getElementById('desc').value.replace(/\|/g, " ");
+
+        // Fallbacks
+        if (!tags) tags = "neu";
+        if (!desc) desc = "Keine Beschreibung";
+
+        // Validierung
+        if (!ssid || !pass) {
+            log("Fehler: SSID und Passwort fehlen!", 'error');
+            alert("Bitte WiFi Daten eingeben.");
+            return;
+        }
+
+        log("Starte serielle Verbindung...", 'system');
+
+        let port;
+        let writer;
+        let reader;
+
+        try {
+            // Request Port (User Gesture required here!)
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+
+            log("Port geöffnet. Warte auf 'READY' vom ESP...", 'system');
+            configBtn.disabled = true;
+
+            // --- READ LOOP (Wait for Ready) ---
+            const textDecoder = new TextDecoderStream();
+            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
+            reader = textDecoder.readable.getReader();
+
+            let buffer = "";
+            let readyReceived = false;
+
+            // Timeout Logic (5s)
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error("Timeout: Kein READY empfangen. Bitte Reset am Gerät drücken!")), 5000)
+            );
+
+            const readLoop = async () => {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) {
+                        buffer += value;
+                        // Log serial output
+                        if (value.trim()) {
+                            log(`[ESP] ${value.trim()}`, 'info');
+                        }
+                        if (buffer.includes("READY")) return true;
                     }
                 }
+            };
 
-                if (!readyReceived) throw new Error("Verbindung abgebrochen bevor READY kam.");
-
-                statusDiv.innerText = "ESP32 bereit! Sende Konfiguration...";
-
-                // DATEN SENDEN
-                const tid = document.getElementById('tid').value;
-                const pin = document.getElementById('pin').value;
-                const cleanHost = host.replace("https://", "").replace("/", "");
-                const dataStr = `${tid}|${pin}|${secret}|${cleanHost}|${ssid}|${pass}`;
-
-                const encoder = new TextEncoder();
-                const dataBytes = encoder.encode(dataStr);
-                const len = dataBytes.length;
-                let sum = 0x04 + len;
-                for(let b of dataBytes) sum += b;
-                const checksum = sum & 0xFF;
-
-                const packet = new Uint8Array(2 + len + 1);
-                packet[0] = 0x04;
-                packet[1] = len;
-                packet.set(dataBytes, 2);
-                packet[len + 2] = checksum;
-
-                console.log("Sende Paket (Hex):", packet);
-
-                writer = port.writable.getWriter();
-                await writer.write(packet);
-                writer.releaseLock();
-
-                // FIX: KEIN port.close() HIER! Wir warten auf den Reset des ESP32.
-                statusDiv.innerText = "Konfiguration GESENDET! Das Gerät sollte gleich neu starten.";
-                statusDiv.style.color = "green";
-
-            } catch (err) {
-                console.error(err);
-                statusDiv.innerText = "Fehler: " + err.message;
-                statusDiv.style.color = "red";
-                // Versuche Locks freizugeben, falls möglich
-                if (writer && writer.locked) writer.releaseLock();
-                if (reader && reader.locked) reader.releaseLock();
-                // Im Fehlerfall versuchen wir zu schließen
-                if (port && port.readable) await port.close().catch(e => console.warn("Close ignoriert:", e));
+            try {
+                // Race: Entweder READY kommt oder Timeout
+                await Promise.race([readLoop(), timeout]);
+                readyReceived = true;
+                log("ESP32 ist BEREIT.", 'success');
+            } catch (e) {
+                log(e.message, 'error');
+                log("Tipp: Drücke den RESET-Knopf am ESP32, während dieses Log läuft.", 'system');
+                // Wir brechen hier NICHT ab, sondern versuchen trotzdem zu senden
             }
-        });
+
+            // Reader freigeben für Write
+            try {
+                reader.releaseLock();
+            } catch (e) {
+                // Ignore
+            }
+
+            // --- DATA PREP ---
+            const tid = document.getElementById('tid').value;
+            const pin = document.getElementById('pin').value;
+            const cleanHost = host.replace("https://", "").replace(/\//g, "");
+
+            // Protokoll V2 String
+            const dataStr = `${tid}|${pin}|${secret}|${cleanHost}|${ssid}|${pass}|${tags}|${desc}`;
+
+            // Encoding & Checksum
+            const encoder = new TextEncoder();
+            const dataBytes = encoder.encode(dataStr);
+            const len = dataBytes.length;
+
+            let sum = 0x04 + len;
+            for (let b of dataBytes) sum += b;
+            const checksum = sum & 0xFF;
+
+            const packet = new Uint8Array(2 + len + 1);
+            packet[0] = 0x04;
+            packet[1] = len;
+            packet.set(dataBytes, 2);
+            packet[len + 2] = checksum;
+
+            log(`Sende Config-Paket (${len} Bytes)...`, 'system');
+
+            writer = port.writable.getWriter();
+            await writer.write(packet);
+            writer.releaseLock();
+
+            log("✅ Konfiguration erfolgreich gesendet!", 'success');
+            configBtn.innerText = "✓ Fertig / Nächstes Gerät";
+            configBtn.style.background = "#2563eb";
+
+            // Neue ID/PIN für nächstes Gerät generieren
+            document.getElementById('tid').value = "grp_" + Math.random().toString(36).substring(2, 6);
+            document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
+            log("Neue Tenant-ID und PIN generiert für nächstes Gerät.", 'system');
+
+        } catch (err) {
+            log("Serial Error: " + err.message, 'error');
+        } finally {
+            try {
+                if (reader) reader.releaseLock();
+            } catch (e) { /* ignore */ }
+            try {
+                if (port) await port.close();
+            } catch (e) { /* ignore */ }
+            configBtn.disabled = false;
+        }
     });
 </script>
 </body>
