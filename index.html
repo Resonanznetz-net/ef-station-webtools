@@ -3,176 +3,134 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v11 | Dark Mode</title>
-    <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+    <title>Triton Cockpit v15 | Bundle Fix</title>
+    <script src="https://unpkg.com/esptool-js@0.5.4/bundle.js"></script>
     <style>
-        /* --- DARK MODE THEME --- */
+        /* --- THEME: DEEP SPACE (High Contrast) --- */
         :root {
-            --bg-app: #0f172a;       /* Sehr dunkles Blau */
-            --bg-card: #1e293b;      /* Dunkles Slate */
-            --bg-input: #334155;     /* Eingabefelder */
-            --text-main: #f1f5f9;    /* Helles Weiß */
-            --text-muted: #94a3b8;   /* Grau */
-
-            --primary: #3b82f6;      /* Helles Blau */
-            --primary-hover: #60a5fa;
-            --success: #22c55e;      /* Neon Grün */
-            --error: #ef4444;        /* Helles Rot */
-
-            --log-bg: #020617;       /* Fast Schwarz */
-            --border: #475569;
+            --bg-core: #0b0f19;
+            --bg-card: #151b2b;
+            --bg-input: #1e2538;
+            --primary: #3b82f6;
+            --accent: #06b6d4;
+            --success: #10b981;
+            --danger: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border: #2d3748;
         }
 
         body {
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            background-color: var(--bg-app);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            box-sizing: border-box;
-            display: flex;
-            flex-direction: column;
+            background: var(--bg-core); color: var(--text-main);
+            font-family: 'Segoe UI', monospace; margin: 0; padding: 20px;
+            min-height: 100vh; display: flex; flex-direction: column; box-sizing: border-box;
         }
 
         /* Browser Warning */
         .browser-warning {
             background: #451a03;
-            border: 2px solid var(--error);
+            border: 2px solid var(--danger);
             border-radius: 8px;
             padding: 20px;
             text-align: center;
             margin-bottom: 20px;
         }
-        .browser-warning h2 { color: var(--error); margin: 0 0 10px 0; border: none; }
+        .browser-warning h2 { color: var(--danger); margin: 0 0 10px 0; }
 
-        /* Header */
         header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border);
-            flex-wrap: wrap;
-            gap: 10px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px;
+            flex-wrap: wrap; gap: 10px;
         }
-        h1 { margin: 0; font-size: 1.5rem; color: var(--primary); letter-spacing: 1px; }
+        h1 { margin: 0; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 2px; color: var(--accent); }
 
-        /* Profile Controls */
         .profile-bar { display: flex; gap: 10px; align-items: center; }
-        select {
-            background: var(--bg-input); color: white; border: 1px solid var(--border);
-            padding: 8px; border-radius: 4px; outline: none; min-width: 150px;
-        }
+        select { background: var(--bg-input); color: white; border: 1px solid var(--border); padding: 8px; border-radius: 4px; min-width: 150px; }
         .btn-icon {
             background: var(--bg-input); border: 1px solid var(--border); color: white;
             cursor: pointer; padding: 8px 12px; border-radius: 4px; transition: 0.2s;
         }
         .btn-icon:hover { background: var(--primary); border-color: var(--primary); }
 
-        /* --- LAYOUT: 70% Config / 30% Flash --- */
+        /* --- DASHBOARD GRID --- */
         .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 2.5fr; /* Flash klein, Config groß */
-            gap: 20px;
-            flex: 1;
-            min-height: 0;
+            display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px;
+            flex: 1; min-height: 0;
         }
         @media (max-width: 900px) { .dashboard { grid-template-columns: 1fr; } }
 
         .card {
-            background: var(--bg-card);
-            border-radius: 8px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            overflow-y: auto;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+            padding: 20px; display: flex; flex-direction: column; overflow-y: auto;
         }
 
         h2 {
-            margin-top: 0; font-size: 1.1rem; color: var(--text-muted);
-            text-transform: uppercase; border-bottom: 1px solid var(--border); padding-bottom: 10px;
-            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;
+            border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-top: 0;
         }
 
-        /* Inputs */
-        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
-        .full-width { grid-column: span 2; }
+        /* --- INPUTS --- */
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .full { grid-column: span 2; }
         @media (max-width: 600px) {
             .form-grid { grid-template-columns: 1fr; }
-            .full-width { grid-column: span 1; }
+            .full { grid-column: span 1; }
         }
 
-        label { display: block; font-size: 0.8rem; font-weight: bold; margin-bottom: 5px; color: var(--text-muted); }
+        label { display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 3px; }
         input, textarea {
-            width: 100%; padding: 12px; background: var(--bg-input);
-            border: 1px solid var(--border); border-radius: 4px; color: white;
-            box-sizing: border-box; font-family: monospace; font-size: 0.95rem;
+            width: 100%; background: var(--bg-input); border: 1px solid var(--border);
+            color: var(--accent); padding: 8px; border-radius: 4px; box-sizing: border-box;
+            font-family: monospace; font-size: 0.9rem;
         }
-        input:focus, textarea:focus { border-color: var(--primary); outline: none; }
-        input[readonly] { background: #1e293b; color: #64748b; cursor: not-allowed; }
+        input:focus { outline: none; border-color: var(--primary); }
+        input[readonly] { background: #0f121a; color: #555; cursor: not-allowed; }
+
+        /* --- CUSTOM PROGRESS BAR --- */
+        .progress-container {
+            height: 24px; background: #000; border-radius: 4px; overflow: hidden;
+            margin: 15px 0; border: 1px solid #333; position: relative;
+        }
+        .progress-bar {
+            height: 100%; width: 0%; background: linear-gradient(90deg, var(--primary), var(--accent));
+            transition: width 0.1s;
+        }
+        .progress-text {
+            position: absolute; width: 100%; text-align: center; top: 0;
+            font-size: 0.75rem; line-height: 24px; text-shadow: 0 0 4px black; font-weight: bold;
+        }
 
         /* --- BUTTONS --- */
-        .btn-action {
-            width: 100%; padding: 15px; border: none; border-radius: 6px;
-            font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 20px;
-            transition: all 0.2s; text-transform: uppercase; letter-spacing: 0.5px;
+        .btn {
+            width: 100%; padding: 15px; border: none; border-radius: 4px;
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
+            transition: 0.2s; color: white; margin-top: auto;
+        }
+        .btn-flash { background: var(--primary); }
+        .btn-flash:hover:not(:disabled) { background: #2563eb; }
+        .btn-flash:disabled { background: var(--bg-input); color: #555; cursor: not-allowed; }
+
+        .btn-config { background: var(--bg-input); color: #555; cursor: not-allowed; }
+        .btn-config.active {
+            background: var(--success); color: black; cursor: pointer;
+            animation: pulse 2s infinite;
         }
 
-        /* Config Button (Main Action) */
-        .btn-config { background: var(--primary); color: white; }
-        .btn-config:hover:not(:disabled) { background: var(--primary-hover); }
-        .btn-config:disabled { background: var(--bg-input); color: #64748b; cursor: not-allowed; opacity: 0.7; }
-
-        /* Flash Area (Small) */
-        .flash-sidebar {
-            display: flex; flex-direction: column; align-items: center; text-align: center;
+        /* --- TERMINAL --- */
+        #term {
+            background: #000; border: 1px solid #333; padding: 10px;
+            font-family: 'Consolas', monospace; font-size: 0.8rem; color: #ccc;
+            flex: 1; overflow-y: auto; white-space: pre-wrap; margin-top: 10px;
+            min-height: 150px; max-height: 300px; resize: vertical;
         }
+        .log-sys { color: var(--accent); }
+        .log-err { color: var(--danger); }
+        .log-ok { color: var(--success); }
 
-        esp-web-install-button { width: 100%; margin: 15px 0; }
-
-        .flash-status {
-            font-size: 0.9rem; font-weight: bold; margin-top: 10px; min-height: 1.2em;
-        }
-
-        /* --- LOG MONITOR (High Contrast & Resizable) --- */
-        #log-container {
-            margin-top: 20px;
-            background: var(--log-bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 15px;
-
-            /* Größer & Verstellbar */
-            height: 350px;
-            min-height: 150px;
-            resize: vertical;
-            overflow: auto;
-
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 0.9rem;
-            line-height: 1.4;
-            color: #e2e8f0;
-        }
-
-        .log-time { color: #64748b; margin-right: 10px; font-size: 0.8rem; }
-        .log-sys { color: #38bdf8; /* Cyan */ }
-        .log-ok  { color: #4ade80; /* Bright Green */ font-weight: bold; }
-        .log-err { color: #f87171; /* Bright Red */ font-weight: bold; }
-
-        /* Animation Pulse */
-        @keyframes pulse-glow {
-            0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { box-shadow: 0 0 0 15px rgba(34, 197, 94, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-        .pulse-active {
-            animation: pulse-glow 2s infinite;
-            background: var(--success) !important;
-            color: black !important;
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
     </style>
 </head>
@@ -185,10 +143,10 @@
     </div>
 
     <header>
-        <h1>⚡ TRITON COCKPIT</h1>
+        <h1>Triton Engine <span style="font-size:0.6em; color:#666;">v15 (Bundle Core)</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
-            <select id="profile-select"><option value="">-- Profil wählen --</option></select>
+            <select id="profile-select"><option value="">-- Profil --</option></select>
             <button class="btn-icon" id="btn-save" title="Speichern">💾</button>
             <button class="btn-icon" id="btn-del" title="Löschen">🗑️</button>
         </div>
@@ -196,60 +154,78 @@
 
     <div class="dashboard" id="main-dashboard">
 
-        <!-- LINKS: Flash (Schritt 1) -->
-        <div class="card flash-sidebar">
-            <h2>1. Installation</h2>
-            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">
-                ESP32 via USB verbinden,<br>dann installieren klicken.
-            </p>
+        <div class="card">
+            <h2>1. Firmware Engine</h2>
 
-            <esp-web-install-button id="install-button" manifest="manifest.json"></esp-web-install-button>
+            <div style="flex:1; display:flex; flex-direction:column;">
+                <p style="font-size:0.8rem; color:#888;">
+                    Direkter Flash-Vorgang via WebSerial.<br>
+                    Kein Popup. Eigene Progress-Bar.
+                </p>
 
-            <div id="flash-status" class="flash-status" style="color: var(--text-muted);">Bereit.</div>
+                <div class="progress-container">
+                    <div id="pb-fill" class="progress-bar"></div>
+                    <div id="pb-text" class="progress-text">0%</div>
+                </div>
 
-            <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 20px;">
-                Nach der Installation<br>→ Konfiguration rechts ausfüllen
-            </p>
+                <div id="status-text" style="text-align:center; font-size:0.8rem; margin-bottom:10px; color:var(--accent);">Bereit</div>
+            </div>
+
+            <button id="btn-flash" class="btn btn-flash">
+                🔌 1. VERBINDEN & FLASHEN
+            </button>
         </div>
 
-        <!-- RECHTS: Config (Schritt 2) -->
         <div class="card">
-            <h2>2. Konfiguration</h2>
+            <h2>2. Konfiguration (V2 Protocol)</h2>
+
             <div class="form-grid">
-                <div><label>Tenant ID</label><input type="text" id="tid" readonly></div>
-                <div><label>Claim PIN</label><input type="text" id="pin" readonly></div>
+                <div><label>TENANT ID</label><input type="text" id="tid" readonly></div>
+                <div><label>CLAIM PIN</label><input type="text" id="pin" readonly></div>
 
-                <div class="full-width"><label>Tags</label><input type="text" id="tags" placeholder="z.B. wohnzimmer, decke"></div>
-                <div class="full-width"><label>KI-Anweisung</label><input type="text" id="desc" placeholder="Kontext für Gemini..."></div>
+                <div class="full"><label>TAGS</label><input type="text" id="tags" placeholder="raum, etage"></div>
+                <div class="full"><label>KI KONTEXT</label><input type="text" id="desc" placeholder="Beschreibung..."></div>
+            </div>
 
-                <div class="full-width" style="border-top: 1px solid var(--border); margin: 10px 0;"></div>
+            <div style="border-top:1px solid #333; margin:10px 0;"></div>
 
-                <div><label>WiFi SSID</label><input type="text" id="ssid" placeholder="WLAN Name"></div>
-                <div><label>Passwort</label><input type="password" id="pass" placeholder="WLAN Key"></div>
+            <div class="form-grid">
+                <div><label>WIFI SSID</label><input type="text" id="ssid"></div>
+                <div><label>WIFI PASS</label><input type="password" id="pass"></div>
 
-                <div class="full-width">
+                <div class="full">
                     <details>
-                        <summary style="color: var(--primary); cursor: pointer; margin-top:5px; font-size: 0.85rem;">Erweiterte Datenbank-Settings</summary>
-                        <div style="margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 4px;">
-                            <label>Secret</label><input type="password" id="secret">
-                            <label style="margin-top:8px;">Host</label><input type="text" id="host" value="triton-iot-default-rtdb.europe-west1.firebasedatabase.app">
+                        <summary style="font-size:0.7rem; color:#666; cursor:pointer;">ERWEITERT</summary>
+                        <div class="form-grid" style="margin-top:5px;">
+                            <div><label>DB SECRET</label><input type="password" id="secret"></div>
+                            <div><label>HOST</label><input type="text" id="host" value="triton-iot-default-rtdb.europe-west1.firebasedatabase.app"></div>
                         </div>
                     </details>
                 </div>
             </div>
 
-            <button id="btn-configure" class="btn-action btn-config" disabled>
-                ⏳ Warte auf Flash...
+            <button id="btn-config" class="btn btn-config" disabled>
+                WARTE AUF FLASH...
             </button>
+
+            <div id="term">System Ready.</div>
         </div>
-
-    </div>
-
-    <div id="log-container">
-        <div><span class="log-time">SYSTEM</span><span class="log-ok">Dark Mode Cockpit v11 geladen.</span></div>
     </div>
 
 <script>
+    // --- LIBRARY MAPPING (Bundle Version) ---
+    const ESPLoader = esptoolJs.ESPLoader;
+    const Transport = esptoolJs.Transport;
+
+    // --- GLOBALS ---
+    const term = document.getElementById('term');
+    const pbFill = document.getElementById('pb-fill');
+    const pbText = document.getElementById('pb-text');
+    const statusText = document.getElementById('status-text');
+    let espLoader = null;
+    let transport = null;
+    let device = null;
+
     // --- 0. BROWSER CHECK ---
     window.onload = () => {
         if (!("serial" in navigator)) {
@@ -268,109 +244,203 @@
             document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
         }
 
-        log("System bereit. Starte mit Schritt 1: Flash.", 'ok');
+        log("System bereit. esptool-js Bundle geladen.", 'ok');
     };
 
-    // --- LOGGER ---
-    const logDiv = document.getElementById('log-container');
-    function log(msg, type = 'sys') {
-        const time = new Date().toLocaleTimeString();
-        const el = document.createElement('div');
-        let colorClass = 'log-sys';
-        if (type === 'ok') colorClass = 'log-ok';
-        if (type === 'err') colorClass = 'log-err';
-
-        el.innerHTML = `<span class="log-time">${time}</span><span class="${colorClass}">${msg}</span>`;
-        logDiv.appendChild(el);
-        logDiv.scrollTop = logDiv.scrollHeight;
+    // --- UTILS ---
+    function log(msg, type = '') {
+        const div = document.createElement('div');
+        div.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        if (type === 'err') div.style.color = 'var(--danger)';
+        if (type === 'ok') div.style.color = 'var(--success)';
+        if (type === 'sys') div.style.color = 'var(--accent)';
+        term.appendChild(div);
+        term.scrollTop = term.scrollHeight;
     }
 
-    // --- ELEMENTS ---
-    const installBtn = document.getElementById('install-button');
-    const configBtn = document.getElementById('btn-configure');
-    const flashStatus = document.getElementById('flash-status');
+    function setProgress(percent, msg) {
+        pbFill.style.width = percent + '%';
+        pbText.textContent = Math.round(percent) + '%';
+        if (msg) statusText.textContent = msg;
+    }
 
-    // --- 1. FLASH LISTENER ---
-    installBtn.addEventListener('state-changed', (ev) => {
-        const s = ev.detail.state;
-        log(`Flash Status: ${s}`, 'sys');
+    // --- MANIFEST PARSER ---
+    async function getFirmwareFiles() {
+        try {
+            log("Lade manifest.json...", 'sys');
+            const resp = await fetch('manifest.json');
+            if (!resp.ok) throw new Error("manifest.json nicht gefunden!");
+            const manifest = await resp.json();
 
-        switch (s) {
-            case 'initializing':
-                flashStatus.innerText = "🔍 Initialisiere...";
-                flashStatus.style.color = "var(--primary)";
-                break;
-            case 'manifest':
-                flashStatus.innerText = "📄 Manifest geladen";
-                break;
-            case 'preparing':
-            case 'erasing':
-                flashStatus.innerText = "🗑️ Lösche Flash...";
-                flashStatus.style.color = "var(--primary)";
-                break;
-            case 'writing':
-            case 'installing':
-                flashStatus.innerText = "⏳ Installiere...";
-                flashStatus.style.color = "var(--primary)";
-                break;
-            case 'finished':
-            case 'install_successful':
-                flashStatus.innerText = "✅ Flash OK";
-                flashStatus.style.color = "var(--success)";
-                log("Firmware installiert. Config-Button aktiviert.", 'ok');
+            const build = manifest.builds[0];
+            log(`Chip: ${build.chipFamily}`, 'sys');
+            const fileArray = [];
 
-                // AKTIVIERE CONFIG BUTTON
-                configBtn.innerText = "▶ JETZT KONFIGURATION SCHREIBEN";
-                configBtn.classList.add('pulse-active');
-                configBtn.disabled = false;
-                break;
-            case 'error':
-                flashStatus.innerText = "❌ Fehler";
-                flashStatus.style.color = "var(--error)";
-                log("Flash-Fehler: " + (ev.detail.message || ev.detail.error || "Unbekannt"), 'err');
-                break;
+            for (const part of build.parts) {
+                log(`Lade ${part.path} (Offset: ${part.offset})...`, 'sys');
+                const binResp = await fetch(part.path);
+                if (!binResp.ok) throw new Error(`Datei ${part.path} fehlt!`);
+                const blob = await binResp.blob();
+
+                const data = await new Promise(resolve => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.readAsBinaryString(blob);
+                });
+
+                // Wichtig: address muss Integer sein, offset im JSON ist oft String (Hex)
+                fileArray.push({ data: data, address: parseInt(part.offset) });
+            }
+            return fileArray;
+        } catch (e) {
+            log(e.message, 'err');
+            return null;
         }
-    });
+    }
 
-    // --- 2. CONFIG ACTION ---
-    configBtn.onclick = async () => {
-        // Validation
+    // --- FLASH ENGINE ---
+    document.getElementById('btn-flash').onclick = async () => {
+        if (!navigator.serial) return alert("WebSerial API fehlt!");
+
+        const btnFlash = document.getElementById('btn-flash');
+        btnFlash.disabled = true;
+        btnFlash.innerText = "⏳ Lade Firmware...";
+
+        const fileArray = await getFirmwareFiles();
+        if (!fileArray) {
+            btnFlash.disabled = false;
+            btnFlash.innerText = "🔌 1. VERBINDEN & FLASHEN";
+            return;
+        }
+
+        try {
+            log("Fordere Serial Port an...", 'sys');
+            // Espressif USB VID Filter
+            device = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
+
+            transport = new Transport(device);
+
+            // Terminal Stub für ESPLoader
+            const terminalStub = {
+                clean: () => {},
+                writeLine: (l) => log(l, 'sys'),
+                write: (l) => {}
+            };
+
+            log("Verbinde mit Bootloader...", 'sys');
+            btnFlash.innerText = "⏳ Bootloader...";
+            setProgress(5, "Verbinde...");
+
+            // Loader Init (High Speed 921600)
+            espLoader = new ESPLoader(transport, 921600, terminalStub);
+
+            const chip = await espLoader.main_fn();
+            log(`Chip erkannt: ${chip}`, 'ok');
+            setProgress(10, "Chip erkannt");
+
+            log("Starte Flash-Vorgang...", 'sys');
+            btnFlash.innerText = "⏳ Flashen...";
+
+            // KORREKTE SIGNATUR v0.5.4: (files, size, mode, freq, compress, sha, callback)
+            await espLoader.write_flash(
+                fileArray,
+                'keep', // flash_size
+                'keep', // flash_mode
+                'keep', // flash_freq
+                false,  // compress
+                false,  // calculate sha256 (kann bei S3/C3 Problemen false sein)
+                (fileIndex, written, total) => {
+                    const percent = 10 + ((written / total) * 85); // 10-95%
+                    setProgress(percent, `Schreibe Teil ${fileIndex + 1}...`);
+                }
+            );
+
+            setProgress(100, "Flash Komplett!");
+            log("Firmware erfolgreich geschrieben.", 'ok');
+            btnFlash.innerText = "✅ Flash OK";
+
+            // --- SOFT RESET SEQUENCE ---
+            log("Führe Soft-Reset durch...", 'sys');
+            await transport.setDTR(false);
+            await transport.setRTS(true);
+            await new Promise(r => setTimeout(r, 100));
+            await transport.setDTR(true);
+            await transport.setRTS(false);
+
+            // WICHTIG: Disconnect für Config Handover
+            await transport.disconnect();
+            await device.close();
+
+            transport = null;
+            espLoader = null;
+            device = null;
+
+            log("Port freigegeben. Config bereit.", 'sys');
+
+            const btnConf = document.getElementById('btn-config');
+            btnConf.disabled = false;
+            btnConf.classList.add('active');
+            btnConf.innerText = "▶ 2. KONFIGURATION SENDEN";
+
+        } catch (e) {
+            log("Flash Fehler: " + e.message, 'err');
+            setProgress(0, "Fehler");
+            btnFlash.innerText = "❌ Fehler - Erneut versuchen";
+            btnFlash.disabled = false;
+
+            // Cleanup bei Fehler
+            try {
+                if (transport) await transport.disconnect();
+            } catch (ex) { /* ignore */ }
+            try {
+                if (device) await device.close();
+            } catch (ex) { /* ignore */ }
+            transport = null;
+            espLoader = null;
+            device = null;
+        }
+    };
+
+    // --- CONFIG ENGINE (V2 Protocol) ---
+    document.getElementById('btn-config').onclick = async () => {
         const ssid = document.getElementById('ssid').value;
         const pass = document.getElementById('pass').value;
 
         if (!ssid || !pass) {
             log("Fehler: SSID & Passwort fehlen!", 'err');
-            alert("Bitte WiFi Daten eingeben.");
+            alert("Bitte SSID und Passwort eingeben!");
             return;
         }
 
-        configBtn.classList.remove('pulse-active');
-        configBtn.disabled = true;
-
-        log("Starte Serial Handshake...", 'sys');
+        const btnConf = document.getElementById('btn-config');
+        btnConf.classList.remove('active');
+        btnConf.disabled = true;
+        btnConf.innerText = "⏳ Verbinde...";
 
         let port = null;
         let reader = null;
         let writer = null;
 
         try {
-            // User gesture required
+            log("Öffne Port für Config...", 'sys');
+            // User muss erneut klicken (Security Policy)
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
-            log("Port offen. Warte auf ESP Boot...", 'sys');
 
-            // Read Loop for Ready
-            const textDecoder = new TextDecoderStream();
-            const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-            reader = textDecoder.readable.getReader();
+            log("Warte auf 'READY' vom ESP...", 'sys');
+            btnConf.innerText = "⏳ Warte auf ESP...";
 
-            // 5s Timeout Race
+            // Read Loop
+            const decoder = new TextDecoderStream();
+            const inputDone = port.readable.pipeTo(decoder.writable);
+            reader = decoder.readable.getReader();
+
             let buffer = "";
             const timeout = new Promise((_, rej) =>
-                setTimeout(() => rej(new Error("Timeout: Kein READY Signal. Bitte Reset am ESP drücken!")), 5000)
+                setTimeout(() => rej(new Error("Timeout: Kein READY Signal. Reset drücken!")), 5000)
             );
 
-            const readFn = async () => {
+            const readLoop = async () => {
                 while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
@@ -385,20 +455,21 @@
             };
 
             try {
-                await Promise.race([readFn(), timeout]);
-                log("ESP Ready erkannt.", 'ok');
+                await Promise.race([readLoop(), timeout]);
+                log("ESP Ready!", 'ok');
             } catch (e) {
                 log(e.message, 'err');
-                log("Tipp: Reset-Knopf am ESP drücken, dann erneut versuchen.", 'sys');
+                log("Tipp: Reset-Knopf am ESP drücken.", 'sys');
+                // Fahre trotzdem fort
             }
 
-            // Reader freigeben für Write
+            // Reader freigeben
             try {
                 reader.releaseLock();
                 reader = null;
             } catch (e) { /* ignore */ }
 
-            // Write Data
+            // DATA PREP (V2 PROTOCOL)
             const tid = document.getElementById('tid').value;
             const pin = document.getElementById('pin').value;
             const secret = document.getElementById('secret').value;
@@ -406,10 +477,10 @@
             const tags = document.getElementById('tags').value.replace(/\|/g, ",") || "neu";
             const desc = document.getElementById('desc').value.replace(/\|/g, " ") || "n/a";
 
-            const payload = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}|${tags}|${desc}`;
-            const enc = new TextEncoder().encode(payload);
+            const raw = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}|${tags}|${desc}`;
+            const enc = new TextEncoder().encode(raw);
 
-            // Checksum V2
+            // Packet V2: [0x04] [Len] [Data...] [Checksum]
             let sum = 0x04 + enc.length;
             for (let b of enc) sum += b;
 
@@ -420,26 +491,17 @@
             packet[packet.length - 1] = sum & 0xFF;
 
             log(`Sende Config-Paket (${enc.length} Bytes)...`, 'sys');
+            btnConf.innerText = "⏳ Sende...";
 
             writer = port.writable.getWriter();
             await writer.write(packet);
             writer.releaseLock();
             writer = null;
 
-            log("✅ CONFIG GESENDET!", 'ok');
-
-            // Reset UI for next device
-            configBtn.innerText = "✓ Fertig / Nächstes Gerät";
-            configBtn.style.background = "#334155";
-            configBtn.style.color = "#94a3b8";
-
-            // New ID/PIN for next device
-            document.getElementById('tid').value = "grp_" + Math.random().toString(36).substring(2, 6);
-            document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
-            log("Neue Tenant-ID und PIN generiert.", 'sys');
+            log("✅ Config V2 gesendet!", 'ok');
 
         } catch (e) {
-            log("Serial Fehler: " + e.message, 'err');
+            log("Config Fehler: " + e.message, 'err');
         } finally {
             // Cleanup
             try {
@@ -452,17 +514,26 @@
                 if (port) await port.close();
             } catch (e) { /* ignore */ }
 
-            configBtn.disabled = false;
+            // Reset UI
+            btnConf.innerText = "✓ Fertig / Nächstes Gerät";
+            btnConf.style.background = "#334155";
+            btnConf.style.color = "#94a3b8";
+            btnConf.disabled = false;
+
+            // New ID für nächstes Gerät
+            document.getElementById('tid').value = "grp_" + Math.random().toString(36).substring(2, 6);
+            document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
+            log("Neue Tenant-ID und PIN generiert.", 'sys');
         }
     };
 
-    // --- PROFILE UTILS ---
+    // --- PROFILE MANAGER ---
     const pSel = document.getElementById('profile-select');
     const pFields = ['ssid', 'pass', 'host', 'secret', 'tags', 'desc'];
 
     function loadProfiles() {
         const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        pSel.innerHTML = '<option value="">-- Profil wählen --</option>';
+        pSel.innerHTML = '<option value="">-- Profil --</option>';
         Object.keys(d).forEach(k => {
             const o = document.createElement('option');
             o.value = k;
