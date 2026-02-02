@@ -124,10 +124,21 @@
             color: #888; font-size: 0.8rem; text-transform: uppercase;
         }
 
+        /* Scrollbar immer anzeigen & smooth scroll */
         #term {
-            padding: 15px; font-family: 'Consolas', monospace; font-size: 0.85rem;
-            color: #ccc; flex: 1; overflow-y: auto; white-space: pre-wrap;
+            padding: 15px;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            color: #ccc;
+            flex: 1;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            scroll-behavior: smooth;
         }
+
+        /* Custom Scrollbar */
+        #term::-webkit-scrollbar { width: 10px; background: #111; }
+        #term::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
 
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
@@ -316,7 +327,10 @@
         else if (type === 'sys') div.style.color = '#38bdf8';
 
         term.appendChild(div);
-        term.scrollTop = term.scrollHeight;
+        // FIX: Sicherstellen, dass Scroll auch bei schnellem Rendering greift
+        requestAnimationFrame(() => {
+            term.scrollTop = term.scrollHeight;
+        });
     }
 
     function setProgress(percent, msg) {
@@ -566,7 +580,8 @@
             writer.releaseLock();
             writer = null;
 
-            log("✅ Config gesendet!", 'ok');
+            log("✅ KONFIGURATION ERFOLGREICH GESENDET!", 'ok');
+            log("Gerät startet neu...", 'sys');
 
         } catch (e) {
             log("Config Fehler: " + e.message, 'err');
