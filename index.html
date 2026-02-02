@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v22 | Operator Edition</title>
+    <title>Triton Cockpit v23 | Factory Suite</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -51,23 +51,49 @@
         }
         .btn-icon:hover { background: var(--primary); border-color: var(--primary); }
 
-        /* Layout - 3 Spalten */
+        /* --- 3-PANE FLUID LAYOUT --- */
         .dashboard {
             display: grid;
-            grid-template-columns: 420px 1fr 320px;
-            gap: 20px; flex: 1; min-height: 0; overflow: hidden;
+            /* Dynamische Spaltenbreiten via CSS Custom Properties */
+            grid-template-columns: var(--w-1, 420px) 4px var(--w-2, 1fr) 4px var(--w-3, 320px);
+            gap: 0;
+            flex: 1; min-height: 0; overflow: hidden;
         }
-        @media (max-width: 1200px) { .dashboard { grid-template-columns: 1fr 1fr; } }
-        @media (max-width: 800px) { .dashboard { grid-template-columns: 1fr; } }
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr 1fr;
+                --w-1: unset !important;
+                --w-3: unset !important;
+            }
+            .resizer { display: none; }
+        }
+        @media (max-width: 800px) {
+            .dashboard { grid-template-columns: 1fr; }
+            .resizer { display: none; }
+        }
 
-        .col-left, .col-middle, .col-right {
+        .col-left {
             display: flex; flex-direction: column; gap: 15px;
-            overflow-y: auto; min-width: 0;
+            overflow-y: auto; min-width: 200px; padding-right: 10px;
         }
 
         .col-middle {
-            min-height: 0;
+            display: flex; flex-direction: column; gap: 15px;
+            overflow-y: auto; min-width: 200px; min-height: 0;
         }
+
+        .col-right {
+            display: flex; flex-direction: column; gap: 15px;
+            overflow-y: auto; min-width: 150px; padding-left: 10px;
+        }
+
+        /* DRAG HANDLES / RESIZER */
+        .resizer {
+            background: var(--border);
+            cursor: col-resize;
+            transition: background 0.2s;
+        }
+        .resizer:hover { background: var(--primary); }
 
         .card {
             background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
@@ -115,11 +141,13 @@
         .btn-flash:hover:not(:disabled) { background: #2563eb; }
         .btn-flash:disabled { background: var(--bg-input); color: #555; cursor: not-allowed; }
 
-        .btn-config { background: var(--bg-input); color: #555; cursor: not-allowed; }
+        .btn-config { background: var(--bg-input); color: #aaa; cursor: pointer; }
+        .btn-config:hover { background: #2a3548; }
         .btn-config.active {
             background: var(--success); color: black; cursor: pointer;
             animation: pulse 2s infinite;
         }
+        .btn-config.active:hover { background: #0d9668; }
 
         /* CLAIM ASSISTANT CARD */
         #claim-card {
@@ -206,7 +234,7 @@
     </div>
 
     <header>
-        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v22 Operator</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v23 Factory Suite</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -215,7 +243,7 @@
         </div>
     </header>
 
-    <div class="dashboard">
+    <div class="dashboard" id="dashboard">
 
         <!-- LINKE SPALTE: Flash & Config -->
         <div class="col-left">
@@ -254,9 +282,11 @@
                         </details>
                     </div>
                 </div>
-                <button id="btn-config" class="btn btn-config" disabled>WARTE AUF FLASH...</button>
+                <button id="btn-config" class="btn btn-config">CONFIG SENDEN (Repair Mode)</button>
             </div>
         </div>
+
+        <div class="resizer" id="drag-1"></div>
 
         <!-- MITTLERE SPALTE: Monitor -->
         <div class="col-middle">
@@ -287,12 +317,17 @@
             </div>
         </div>
 
+        <div class="resizer" id="drag-2"></div>
+
         <!-- RECHTE SPALTE: Geraete-Historie -->
         <div class="col-right">
             <div class="card" style="flex:1;">
                 <h2>
                     Geraete-Protokoll
-                    <button id="btn-clear-history" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;">Leeren</button>
+                    <span>
+                        <button onclick="exportData()" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Backup speichern">Export</button>
+                        <button id="btn-clear-history" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Alle loeschen">Leeren</button>
+                    </span>
                 </h2>
                 <p style="font-size:0.7rem; color:var(--text-muted); margin:0 0 10px 0;">
                     Alle konfigurierten Geraete. Klicke auf "Code" um den Claim-Befehl zu kopieren.
@@ -329,7 +364,7 @@
 
     // --- INIT ---
     function init() {
-        console.log('Triton v22 Operator Init...');
+        console.log('Triton v23 Factory Suite Init...');
 
         // 1. IDs generieren
         generateIds();
@@ -429,9 +464,8 @@
                         <span class="tag-badge">${item.tags || 'no-tags'}</span>
                     </div>
                 </div>
-                <button class="btn-copy-small" data-cmd="${claimCmd}" title="${claimCmd}">
-                    Code
-                </button>
+                <button class="btn-copy-small" data-cmd="${claimCmd}" title="${claimCmd}">Code</button>
+                <button class="btn-copy-small" onclick="deleteHistoryItem(${idx})" title="Loeschen" style="margin-left:4px; background:#3f1515;">X</button>
             `;
 
             // Copy Button Event
@@ -657,7 +691,7 @@
         }
     }
 
-    // --- CONFIG ---
+    // --- CONFIG (Repair Mode Ready) ---
     async function handleConfig() {
         const ssid = document.getElementById('ssid').value;
         const pass = document.getElementById('pass').value;
@@ -670,7 +704,6 @@
 
         const btnConf = document.getElementById('btn-config');
         btnConf.classList.remove('active');
-        btnConf.disabled = true;
         btnConf.innerText = "Verbinde...";
 
         // Aktuelle IDs merken BEVOR sie regeneriert werden
@@ -898,6 +931,81 @@
             btn.style.background = "#222";
         }
     });
+
+    // --- RESIZER LOGIC ---
+    const dashboard = document.getElementById('dashboard');
+
+    function makeResizable(resizerId, colVar, isRightSide) {
+        const resizer = document.getElementById(resizerId);
+        if (!resizer) return;
+
+        resizer.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+
+            const startX = e.clientX;
+            const targetCol = isRightSide ? resizer.nextElementSibling : resizer.previousElementSibling;
+            const startW = targetCol.offsetWidth;
+
+            const onMove = (e) => {
+                let newW;
+                if (isRightSide) {
+                    // Rechte Spalte: Nach links ziehen = groesser
+                    newW = startW - (e.clientX - startX);
+                } else {
+                    // Linke Spalte: Nach rechts ziehen = groesser
+                    newW = startW + (e.clientX - startX);
+                }
+                // Min-Width beachten
+                newW = Math.max(newW, 150);
+                newW = Math.min(newW, window.innerWidth * 0.5);
+                dashboard.style.setProperty(colVar, newW + 'px');
+            };
+
+            const onUp = () => {
+                document.removeEventListener('mousemove', onMove);
+                document.removeEventListener('mouseup', onUp);
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            };
+
+            document.addEventListener('mousemove', onMove);
+            document.addEventListener('mouseup', onUp);
+        });
+    }
+
+    // Init Resizers
+    makeResizable('drag-1', '--w-1', false); // Linke Spalte
+    makeResizable('drag-2', '--w-3', true);  // Rechte Spalte
+
+    // --- EXPORT FUNKTION ---
+    window.exportData = function() {
+        const data = {
+            profiles: JSON.parse(localStorage.getItem('triton_profiles') || '{}'),
+            ledger: JSON.parse(localStorage.getItem('triton_ledger') || '[]'),
+            exportedAt: new Date().toISOString(),
+            version: 'v23'
+        };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `triton_backup_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        log("Backup exportiert.", 'ok');
+    };
+
+    // --- HISTORY DELETE EINZELN ---
+    window.deleteHistoryItem = function(index) {
+        if (!confirm("Eintrag loeschen?")) return;
+        const history = JSON.parse(localStorage.getItem('triton_ledger') || '[]');
+        history.splice(index, 1);
+        localStorage.setItem('triton_ledger', JSON.stringify(history));
+        renderHistory();
+        log("Eintrag geloescht.", 'sys');
+    };
 
 })();
 </script>
