@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v17.2 | API Fix</title>
+    <title>Triton Cockpit v22 | Operator Edition</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -17,6 +17,7 @@
             --primary: #3b82f6;
             --accent: #06b6d4;
             --success: #10b981;
+            --warning: #f59e0b;
             --danger: #ef4444;
             --text-main: #f3f4f6;
             --text-muted: #9ca3af;
@@ -50,30 +51,22 @@
         }
         .btn-icon:hover { background: var(--primary); border-color: var(--primary); }
 
-        /* Layout */
+        /* Layout - 3 Spalten */
         .dashboard {
             display: grid;
-            grid-template-columns: 450px 1fr;
+            grid-template-columns: 420px 1fr 320px;
             gap: 20px; flex: 1; min-height: 0; overflow: hidden;
         }
-        @media (max-width: 900px) { .dashboard { grid-template-columns: 1fr; } }
+        @media (max-width: 1200px) { .dashboard { grid-template-columns: 1fr 1fr; } }
+        @media (max-width: 800px) { .dashboard { grid-template-columns: 1fr; } }
 
-        .col-left {
-            display: flex; flex-direction: column; gap: 20px;
+        .col-left, .col-middle, .col-right {
+            display: flex; flex-direction: column; gap: 15px;
             overflow-y: auto; min-width: 0;
         }
 
-        /* RECHTE SPALTE (Container) - Scroll-Fix */
-        .col-right {
-            display: flex;
-            flex-direction: column;
-            height: 100%;
-            min-height: 0; /* WICHTIG für Scrollen in Flexbox */
-            min-width: 0;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            background: #000;
-            overflow: hidden; /* Hält alles im Kasten */
+        .col-middle {
+            min-height: 0;
         }
 
         .card {
@@ -84,6 +77,7 @@
         h2 {
             font-size: 0.9rem; color: var(--text-muted); text-transform: uppercase;
             border-bottom: 1px solid var(--border); padding-bottom: 10px; margin-top: 0;
+            display: flex; justify-content: space-between; align-items: center;
         }
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
@@ -97,7 +91,7 @@
             font-family: monospace; font-size: 0.9rem;
         }
         input:focus { outline: none; border-color: var(--primary); }
-        input[readonly] { background: #0f121a; color: #555; cursor: not-allowed; }
+        input[readonly] { background: #0f121a; color: #666; cursor: not-allowed; }
 
         .progress-container {
             height: 24px; background: #000; border-radius: 4px; overflow: hidden;
@@ -127,81 +121,123 @@
             animation: pulse 2s infinite;
         }
 
+        /* CLAIM ASSISTANT CARD */
+        #claim-card {
+            background: linear-gradient(145deg, #0f291e, #151b2b);
+            border: 2px solid var(--success);
+            display: none;
+        }
+        #claim-card.visible { display: flex; }
+
+        .claim-box {
+            background: #000; border: 2px dashed var(--success); padding: 15px;
+            border-radius: 6px; margin: 10px 0; font-family: monospace; font-size: 1.1rem;
+            color: var(--success); text-align: center; cursor: pointer; user-select: all;
+            transition: 0.2s;
+        }
+        .claim-box:hover { background: #052e16; border-style: solid; }
+        .claim-box.copied { border-color: white; color: white; }
+
+        .btn-telegram {
+            background: #0088cc; text-decoration: none; text-align: center;
+            padding: 12px; display: block; border-radius: 4px; color: white;
+            font-weight: bold; margin-top: 10px;
+        }
+        .btn-telegram:hover { background: #006699; }
+
+        /* HISTORY / LEDGER */
+        .history-list {
+            max-height: 300px; overflow-y: auto; margin-top: 10px;
+        }
+        .history-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 10px; border-bottom: 1px solid #333; font-size: 0.8rem;
+            transition: 0.2s;
+        }
+        .history-item:hover { background: #ffffff08; }
+        .history-item .info { flex: 1; }
+        .history-item .tid { font-weight: bold; color: var(--accent); }
+        .history-item .meta { color: var(--text-muted); font-size: 0.7rem; margin-top: 2px; }
+        .tag-badge { background: #333; padding: 2px 6px; border-radius: 3px; font-size: 0.65rem; margin-left: 5px; }
+        .btn-copy-small {
+            background: var(--bg-input); border: 1px solid #444; color: white;
+            cursor: pointer; border-radius: 4px; padding: 6px 10px; font-size: 0.75rem;
+            white-space: nowrap;
+        }
+        .btn-copy-small:hover { background: var(--primary); }
+
+        /* MONITOR */
+        .monitor-container {
+            display: flex; flex-direction: column; flex: 1; min-height: 200px;
+            border: 1px solid var(--border); border-radius: 8px; background: #000; overflow: hidden;
+        }
         .monitor-header {
-            padding: 10px 15px;
-            border-bottom: 1px solid #333;
-            color: #888;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            flex-shrink: 0; /* Header darf nicht schrumpfen */
+            padding: 10px 15px; border-bottom: 1px solid #333;
+            color: #888; font-size: 0.8rem; text-transform: uppercase;
+            display: flex; justify-content: space-between; align-items: center;
+            flex-shrink: 0;
         }
 
-        /* MONITOR INHALT (Scrollbereich) - Flexbox Scroll Fix */
         #term {
-            padding: 15px;
-            font-family: 'Consolas', monospace;
-            font-size: 0.85rem;
-            color: #ccc;
-
-            /* DER SCROLL FIX */
-            flex: 1;
-            height: 0; /* Trick: Zwingt Browser zur Neuberechnung */
-            min-height: 0;
-            overflow-y: auto;
-
-            white-space: pre-wrap;
-            scroll-behavior: smooth;
+            padding: 15px; font-family: 'Consolas', monospace; font-size: 0.85rem;
+            color: #ccc; flex: 1; height: 0; min-height: 0; overflow-y: auto;
+            white-space: pre-wrap; scroll-behavior: smooth;
         }
-
-        /* Scrollbar Styling (für Chrome/Edge) */
-        #term::-webkit-scrollbar { width: 12px; background: #0b0f19; }
-        #term::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 6px; border: 3px solid #0b0f19; }
+        #term::-webkit-scrollbar { width: 10px; background: #111; }
+        #term::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
 
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
             70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
             100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
         }
+
+        .empty-state {
+            padding: 20px; text-align: center; color: var(--text-muted);
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body>
 
     <div id="browser-warning" class="browser-warning" style="display: none;">
-        <h2>⚠️ Browser nicht unterstützt</h2>
+        <h2>Browser nicht unterstuetzt</h2>
         <p>Web Serial API fehlt. Nutze Chrome oder Edge.</p>
     </div>
 
     <header>
-        <h1>Triton Engine <span style="font-size:0.6em; color:#666;">v17.2</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v22 Operator</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
-            <button class="btn-icon" id="btn-save" title="Speichern">💾</button>
-            <button class="btn-icon" id="btn-del" title="Löschen">🗑️</button>
+            <button class="btn-icon" id="btn-save" title="Speichern">Speichern</button>
+            <button class="btn-icon" id="btn-del" title="Loeschen">Loeschen</button>
         </div>
     </header>
 
-    <div class="dashboard" id="main-dashboard">
+    <div class="dashboard">
 
+        <!-- LINKE SPALTE: Flash & Config -->
         <div class="col-left">
             <div class="card">
                 <h2>1. Firmware Engine</h2>
-                <div style="margin-bottom:15px;">
-                    <div class="progress-container">
-                        <div id="pb-fill" class="progress-bar"></div>
-                        <div id="pb-text" class="progress-text">0%</div>
-                    </div>
-                    <div id="status-text" style="text-align:center; font-size:0.8rem; color:var(--accent);">Bereit</div>
+                <p style="font-size:0.75rem; color:var(--text-muted); margin:0 0 10px 0;">
+                    USB einstecken. Falls Fehler: BOOT halten, RESET druecken.
+                </p>
+                <div class="progress-container">
+                    <div id="pb-fill" class="progress-bar"></div>
+                    <div id="pb-text" class="progress-text">0%</div>
                 </div>
-                <button id="btn-flash" class="btn btn-flash">🔌 VERBINDEN & FLASHEN</button>
+                <div id="status-text" style="text-align:center; font-size:0.8rem; color:var(--accent); margin-bottom:15px;">Bereit</div>
+                <button id="btn-flash" class="btn btn-flash">VERBINDEN & FLASHEN</button>
             </div>
 
             <div class="card">
                 <h2>2. Konfiguration</h2>
                 <div class="form-grid">
-                    <div><label>TENANT ID</label><input type="text" id="tid" readonly></div>
-                    <div><label>CLAIM PIN</label><input type="text" id="pin" readonly></div>
-                    <div class="full"><label>TAGS</label><input type="text" id="tags" placeholder="raum, etage"></div>
+                    <div><label>TENANT ID (Auto)</label><input type="text" id="tid" readonly></div>
+                    <div><label>CLAIM PIN (Auto)</label><input type="text" id="pin" readonly></div>
+                    <div class="full"><label>TAGS</label><input type="text" id="tags" placeholder="raum, etage, typ"></div>
                     <div class="full"><label>KI KONTEXT</label><input type="text" id="desc" placeholder="Beschreibung..."></div>
                 </div>
                 <div style="border-top:1px solid #333; margin:10px 0;"></div>
@@ -222,12 +258,49 @@
             </div>
         </div>
 
-        <div class="col-right">
-            <div class="monitor-header" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>SYSTEM MONITOR</span>
-                <button id="btn-monitor" style="background:#222; color:#fff; border:1px solid #444; padding:4px 8px; font-size:0.7rem; cursor:pointer; border-radius:4px;">📡 VERBINDEN</button>
+        <!-- MITTLERE SPALTE: Monitor -->
+        <div class="col-middle">
+            <!-- CLAIM ASSISTANT (erscheint nach erfolgreicher Config) -->
+            <div id="claim-card" class="card">
+                <h2 style="color:var(--success); border-color:var(--success);">3. Fertig! Naechster Schritt:</h2>
+                <p style="font-size:0.85rem; text-align:center; margin:5px 0;">
+                    Sende diesen Befehl an <strong>@IAM_Klein_Bot</strong> in Telegram,<br>
+                    um das Geraet mit deinem Account zu verbinden:
+                </p>
+                <div class="claim-box" id="claim-code" title="Klicken zum Kopieren">
+                    /claim ... ...
+                </div>
+                <a id="btn-telegram" class="btn-telegram" href="https://t.me/IAM_Klein_Bot" target="_blank">
+                    Telegram Bot oeffnen
+                </a>
+                <p style="font-size:0.7rem; color:var(--text-muted); text-align:center; margin-top:10px;">
+                    Der Code wurde automatisch in der Historie gespeichert.
+                </p>
             </div>
-            <div id="term"></div>
+
+            <div class="monitor-container">
+                <div class="monitor-header">
+                    <span>SYSTEM MONITOR</span>
+                    <button id="btn-monitor" style="background:#222; color:#fff; border:1px solid #444; padding:4px 8px; font-size:0.7rem; cursor:pointer; border-radius:4px;">VERBINDEN</button>
+                </div>
+                <div id="term"></div>
+            </div>
+        </div>
+
+        <!-- RECHTE SPALTE: Geraete-Historie -->
+        <div class="col-right">
+            <div class="card" style="flex:1;">
+                <h2>
+                    Geraete-Protokoll
+                    <button id="btn-clear-history" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;">Leeren</button>
+                </h2>
+                <p style="font-size:0.7rem; color:var(--text-muted); margin:0 0 10px 0;">
+                    Alle konfigurierten Geraete. Klicke auf "Code" um den Claim-Befehl zu kopieren.
+                </p>
+                <div id="history-list" class="history-list">
+                    <div class="empty-state">Noch keine Geraete konfiguriert.</div>
+                </div>
+            </div>
         </div>
 
     </div>
@@ -250,25 +323,18 @@
     let transport = null;
     let device = null;
 
-    // Hilfsfunktion für ID-Gen (robust)
-    function generateIds() {
-        const tid = document.getElementById('tid');
-        const pin = document.getElementById('pin');
-        if (tid && !tid.value) {
-            tid.value = "grp_" + Math.random().toString(36).substring(2, 6);
-        }
-        if (pin && !pin.value) {
-            pin.value = Math.floor(1000 + Math.random() * 9000);
-        }
-    }
+    // Aktuelle Session-Daten (fuer Ledger)
+    let currentSessionTid = null;
+    let currentSessionPin = null;
 
+    // --- INIT ---
     function init() {
-        console.log('Triton v17.2 Init...');
+        console.log('Triton v22 Operator Init...');
 
-        // 1. ID/PIN sofort generieren
+        // 1. IDs generieren
         generateIds();
 
-        // 2. Library Check (mit Retry für Module-Ladezeit)
+        // 2. Library Check
         function checkLibrary() {
             if (typeof window.esptoolJs !== 'undefined') {
                 ESPLoader = window.esptoolJs.ESPLoader;
@@ -281,12 +347,10 @@
 
         if (!checkLibrary()) {
             log("Warte auf esptool-js Module...", 'sys');
-            // Retry nach 500ms (Module laden async)
             setTimeout(() => {
                 if (!checkLibrary()) {
-                    log("FEHLER: esptool-js nicht verfügbar!", 'err');
-                    const btnFlash = document.getElementById('btn-flash');
-                    if (btnFlash) btnFlash.disabled = true;
+                    log("FEHLER: esptool-js nicht verfuegbar!", 'err');
+                    document.getElementById('btn-flash').disabled = true;
                 }
             }, 500);
         }
@@ -294,43 +358,137 @@
         // 3. Browser Check
         if (!("serial" in navigator)) {
             document.getElementById('browser-warning').style.display = 'block';
-            log("WebSerial nicht unterstützt!", 'err');
+            log("WebSerial nicht unterstuetzt!", 'err');
             return;
         }
 
-        // 4. Profile laden
+        // 4. Profile & Historie laden
         loadProfiles();
+        renderHistory();
 
-        // 5. Event Listener registrieren
+        // 5. Event Listener
         setupEventListeners();
 
         log("System bereit.", 'ok');
     }
 
+    // --- ID MANAGEMENT ---
+    function generateIds() {
+        const tid = document.getElementById('tid');
+        const pin = document.getElementById('pin');
+
+        // Immer neue IDs generieren (fuer naechstes Geraet)
+        tid.value = "grp_" + Math.random().toString(36).substring(2, 6);
+        pin.value = Math.floor(1000 + Math.random() * 9000);
+
+        // Session speichern
+        currentSessionTid = tid.value;
+        currentSessionPin = pin.value;
+    }
+
+    // --- LEDGER / HISTORY SYSTEM ---
+    function addToHistory(entry) {
+        const history = JSON.parse(localStorage.getItem('triton_ledger') || '[]');
+
+        // Duplikat-Check (gleiche TID)
+        const exists = history.find(h => h.tid === entry.tid);
+        if (exists) {
+            // Update statt neu hinzufuegen
+            Object.assign(exists, entry);
+        } else {
+            history.unshift(entry);
+        }
+
+        // Limit 100 Eintraege
+        if (history.length > 100) history.pop();
+
+        localStorage.setItem('triton_ledger', JSON.stringify(history));
+        renderHistory();
+    }
+
+    function renderHistory() {
+        const list = document.getElementById('history-list');
+        const history = JSON.parse(localStorage.getItem('triton_ledger') || '[]');
+
+        if (history.length === 0) {
+            list.innerHTML = '<div class="empty-state">Noch keine Geraete konfiguriert.</div>';
+            return;
+        }
+
+        list.innerHTML = '';
+        history.forEach((item, idx) => {
+            const claimCmd = `/claim ${item.tid} ${item.pin}`;
+
+            const row = document.createElement('div');
+            row.className = 'history-item';
+            row.innerHTML = `
+                <div class="info">
+                    <div class="tid">${item.tid}</div>
+                    <div class="meta">
+                        ${item.timestamp}
+                        <span class="tag-badge">${item.tags || 'no-tags'}</span>
+                    </div>
+                </div>
+                <button class="btn-copy-small" data-cmd="${claimCmd}" title="${claimCmd}">
+                    Code
+                </button>
+            `;
+
+            // Copy Button Event
+            row.querySelector('.btn-copy-small').addEventListener('click', function() {
+                const cmd = this.getAttribute('data-cmd');
+                navigator.clipboard.writeText(cmd);
+                this.textContent = 'Kopiert!';
+                setTimeout(() => this.textContent = 'Code', 1500);
+                log(`Kopiert: ${cmd}`, 'ok');
+            });
+
+            list.appendChild(row);
+        });
+    }
+
+    function clearHistory() {
+        if (confirm('Alle Geraete-Eintraege loeschen?')) {
+            localStorage.removeItem('triton_ledger');
+            renderHistory();
+            log("Historie geloescht.", 'sys');
+        }
+    }
+
+    // --- CLAIM ASSISTANT ---
+    function showClaimAssistant(tid, pin) {
+        const card = document.getElementById('claim-card');
+        const codeBox = document.getElementById('claim-code');
+
+        const cmd = `/claim ${tid} ${pin}`;
+        codeBox.textContent = cmd;
+        card.classList.add('visible');
+
+        // Click to copy
+        codeBox.onclick = () => {
+            navigator.clipboard.writeText(cmd);
+            codeBox.classList.add('copied');
+            codeBox.textContent = 'KOPIERT!';
+            setTimeout(() => {
+                codeBox.classList.remove('copied');
+                codeBox.textContent = cmd;
+            }, 1500);
+            log(`Claim-Code kopiert: ${cmd}`, 'ok');
+        };
+    }
+
+    function hideClaimAssistant() {
+        document.getElementById('claim-card').classList.remove('visible');
+    }
+
+    // --- EVENT LISTENERS ---
     function setupEventListeners() {
-        // Flash Button
-        const btnFlash = document.getElementById('btn-flash');
-        if (btnFlash) {
-            btnFlash.addEventListener('click', handleFlash);
-            console.log('Flash Button Listener registriert');
-        }
-
-        // Config Button
-        const btnConfig = document.getElementById('btn-config');
-        if (btnConfig) {
-            btnConfig.addEventListener('click', handleConfig);
-            console.log('Config Button Listener registriert');
-        }
-
-        // Profile Buttons
-        const btnSave = document.getElementById('btn-save');
-        if (btnSave) btnSave.addEventListener('click', saveProfile);
-
-        const btnDel = document.getElementById('btn-del');
-        if (btnDel) btnDel.addEventListener('click', deleteProfile);
-
-        const pSel = document.getElementById('profile-select');
-        if (pSel) pSel.addEventListener('change', loadSelectedProfile);
+        document.getElementById('btn-flash').addEventListener('click', handleFlash);
+        document.getElementById('btn-config').addEventListener('click', handleConfig);
+        document.getElementById('btn-save').addEventListener('click', saveProfile);
+        document.getElementById('btn-del').addEventListener('click', deleteProfile);
+        document.getElementById('profile-select').addEventListener('change', loadSelectedProfile);
+        document.getElementById('btn-clear-history').addEventListener('click', clearHistory);
     }
 
     // --- LOG ---
@@ -346,24 +504,15 @@
         else if (type === 'ok') div.style.color = '#4ade80';
         else if (type === 'sys') div.style.color = '#38bdf8';
 
-        // SMART SCROLL: Nur scrollen wenn User schon unten ist (Toleranz 50px)
         const isAtBottom = (term.scrollHeight - term.scrollTop - term.clientHeight) < 50;
-
         term.appendChild(div);
-
-        if (isAtBottom) {
-            term.scrollTop = term.scrollHeight;
-        }
+        if (isAtBottom) term.scrollTop = term.scrollHeight;
     }
 
     function setProgress(percent, msg) {
-        const pbFill = document.getElementById('pb-fill');
-        const pbText = document.getElementById('pb-text');
-        const statusText = document.getElementById('status-text');
-
-        if (pbFill) pbFill.style.width = percent + '%';
-        if (pbText) pbText.textContent = Math.round(percent) + '%';
-        if (statusText && msg) statusText.textContent = msg;
+        document.getElementById('pb-fill').style.width = percent + '%';
+        document.getElementById('pb-text').textContent = Math.round(percent) + '%';
+        if (msg) document.getElementById('status-text').textContent = msg;
     }
 
     // --- MANIFEST ---
@@ -390,7 +539,6 @@
                     reader.readAsBinaryString(blob);
                 });
 
-                // Sicherstellen, dass data ein Binary String ist (v0.5.4 Anforderung)
                 fileArray.push({ data: data, address: Number(part.offset) });
             }
             return fileArray;
@@ -402,8 +550,8 @@
 
     // --- FLASH ---
     async function handleFlash() {
-        console.log('Flash Button geklickt!');
         log("Flash gestartet...", 'sys');
+        hideClaimAssistant();
 
         if (!ESPLoader || !Transport) {
             log("Library nicht geladen!", 'err');
@@ -412,20 +560,19 @@
 
         const btnFlash = document.getElementById('btn-flash');
         btnFlash.disabled = true;
-        btnFlash.innerText = "⏳ Lade...";
+        btnFlash.innerText = "Lade...";
 
         const fileArray = await getFirmwareFiles();
         if (!fileArray) {
             btnFlash.disabled = false;
-            btnFlash.innerText = "🔌 VERBINDEN & FLASHEN";
+            btnFlash.innerText = "VERBINDEN & FLASHEN";
             return;
         }
 
         try {
-            log("Wähle Serial Port...", 'sys');
+            log("Waehle Serial Port...", 'sys');
             device = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
 
-            // FIX: Transport mit 'true' Flag für C3 Native USB Support & Tracing
             transport = new Transport(device, true);
 
             const termStub = {
@@ -435,32 +582,29 @@
             };
 
             log("Verbinde mit Bootloader...", 'sys');
-            btnFlash.innerText = "⏳ Bootloader...";
+            btnFlash.innerText = "Bootloader...";
             setProgress(5, "Verbinde...");
 
-            // FIX: ESPLoader erwartet Options-Objekt!
             espLoader = new ESPLoader({
                 transport: transport,
                 baudrate: 921600,
                 terminal: termStub
             });
 
-            // v0.5.4 API: main() mit C3 Native USB Parametern
             const chip = await espLoader.main('default_reset', 'default_reset', 'dio', 'dio');
             log(`Chip: ${chip}`, 'ok');
             setProgress(10, "Chip OK");
 
             log("Starte Flash...", 'sys');
-            btnFlash.innerText = "⏳ Flashen...";
+            btnFlash.innerText = "Flashen...";
 
-            // FIX: Nutzung der expliziten Methode writeFlash (CamelCase in neueren Versionen bevorzugt)
             await espLoader.writeFlash({
                 fileArray: fileArray,
                 flashSize: 'keep',
-                flashMode: 'dio', // C3 nutzt meist DIO
+                flashMode: 'dio',
                 flashFreq: '80m',
                 eraseAll: false,
-                compress: true, // Wichtig für Speed!
+                compress: true,
                 reportProgress: (idx, written, total) => {
                     const pct = 10 + ((written / total) * 85);
                     setProgress(pct, `Flash: ${Math.round((written/total)*100)}%`);
@@ -469,7 +613,7 @@
 
             setProgress(100, "Flash OK!");
             log("Firmware geschrieben.", 'ok');
-            btnFlash.innerText = "✅ Flash OK";
+            btnFlash.innerText = "Flash OK";
 
             // Soft Reset
             log("Soft-Reset...", 'sys');
@@ -479,14 +623,8 @@
             await transport.setDTR(true);
             await transport.setRTS(false);
 
-            // FIX: Robustes Cleanup für Native USB (Port kann bereits geschlossen sein nach Reset)
-            try {
-                await transport.disconnect();
-            } catch (e) { console.log("Disconnect Warnung (normal bei Reset):", e); }
-
-            try {
-                await device.close();
-            } catch (e) { console.log("Close Warnung (Port war schon weg):", e); }
+            try { await transport.disconnect(); } catch (e) {}
+            try { await device.close(); } catch (e) {}
 
             transport = null;
             espLoader = null;
@@ -498,19 +636,18 @@
             const btnConf = document.getElementById('btn-config');
             btnConf.disabled = false;
             btnConf.classList.add('active');
-            btnConf.innerText = "▶ KONFIGURATION SENDEN";
+            btnConf.innerText = "KONFIGURATION SENDEN";
 
-            // FIX: Flash Button sofort wieder freigeben für Massenproduktion
             btnFlash.disabled = false;
-            btnFlash.innerText = "🔌 NÄCHSTES FLASHEN";
-            log("Bereit für nächstes Gerät.", 'sys');
+            btnFlash.innerText = "NAECHSTES FLASHEN";
+            log("Bereit fuer Config oder naechstes Geraet.", 'sys');
 
         } catch (e) {
             log("Flash Fehler: " + e.message, 'err');
             console.error(e);
             setProgress(0, "Fehler");
-            btnFlash.innerText = "❌ Fehler - Retry";
-            btnFlash.disabled = false; // Auch bei Fehler wieder freigeben
+            btnFlash.innerText = "Fehler - Retry";
+            btnFlash.disabled = false;
 
             try { if (transport) await transport.disconnect(); } catch (ex) {}
             try { if (device) await device.close(); } catch (ex) {}
@@ -522,8 +659,6 @@
 
     // --- CONFIG ---
     async function handleConfig() {
-        console.log('Config Button geklickt!');
-
         const ssid = document.getElementById('ssid').value;
         const pass = document.getElementById('pass').value;
 
@@ -536,19 +671,26 @@
         const btnConf = document.getElementById('btn-config');
         btnConf.classList.remove('active');
         btnConf.disabled = true;
-        btnConf.innerText = "⏳ Verbinde...";
+        btnConf.innerText = "Verbinde...";
+
+        // Aktuelle IDs merken BEVOR sie regeneriert werden
+        const tid = document.getElementById('tid').value;
+        const pin = document.getElementById('pin').value;
+        const tags = document.getElementById('tags').value.replace(/\|/g, ",") || "neu";
+        const desc = document.getElementById('desc').value.replace(/\|/g, " ") || "n/a";
 
         let port = null;
         let reader = null;
         let writer = null;
+        let configSuccess = false;
 
         try {
-            log("Öffne Port...", 'sys');
+            log("Oeffne Port...", 'sys');
             port = await navigator.serial.requestPort();
             await port.open({ baudRate: 115200 });
 
             log("Warte auf READY...", 'sys');
-            btnConf.innerText = "⏳ Warte...";
+            btnConf.innerText = "Warte...";
 
             const decoder = new TextDecoderStream();
             port.readable.pipeTo(decoder.writable);
@@ -556,7 +698,7 @@
 
             let buffer = "";
             const timeout = new Promise((_, rej) =>
-                setTimeout(() => rej(new Error("Timeout - Reset drücken!")), 5000)
+                setTimeout(() => rej(new Error("Timeout - Reset druecken!")), 5000)
             );
 
             const readLoop = async () => {
@@ -581,12 +723,8 @@
             try { reader.releaseLock(); reader = null; } catch (e) {}
 
             // V2 Protocol
-            const tid = document.getElementById('tid').value;
-            const pin = document.getElementById('pin').value;
             const secret = document.getElementById('secret').value;
             const host = document.getElementById('host').value.replace("https://", "").replace(/\/$/g, "");
-            const tags = document.getElementById('tags').value.replace(/\|/g, ",") || "neu";
-            const desc = document.getElementById('desc').value.replace(/\|/g, " ") || "n/a";
 
             const raw = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}|${tags}|${desc}`;
             const enc = new TextEncoder().encode(raw);
@@ -601,39 +739,54 @@
             packet[packet.length - 1] = sum & 0xFF;
 
             log(`Sende ${enc.length} Bytes...`, 'sys');
-            btnConf.innerText = "⏳ Sende...";
+            btnConf.innerText = "Sende...";
 
             writer = port.writable.getWriter();
             await writer.write(packet);
             writer.releaseLock();
             writer = null;
 
-            log("✅ KONFIGURATION ERFOLGREICH GESENDET!", 'ok');
-            log("Gerät startet neu...", 'sys');
+            log("KONFIGURATION ERFOLGREICH GESENDET!", 'ok');
+            log("Geraet startet neu...", 'sys');
+            configSuccess = true;
 
         } catch (e) {
             log("Config Fehler: " + e.message, 'err');
-            // Button bei Fehler wieder freigeben
             btnConf.disabled = false;
-            btnConf.innerText = "❌ Retry Config";
+            btnConf.innerText = "Retry Config";
         } finally {
             try { if (reader) reader.releaseLock(); } catch (e) {}
             try { if (writer) writer.releaseLock(); } catch (e) {}
             try { if (port) await port.close(); } catch (e) {}
 
-            // UI Reset für Massenproduktion
-            btnConf.classList.remove('active');
-            btnConf.disabled = false;
-            btnConf.innerText = "↺ Config erneut senden";
-            btnConf.style.background = "#334155";
-            btnConf.style.color = "#94a3b8";
+            if (configSuccess) {
+                // --- ERFOLG: Ledger & Claim Assistant ---
 
-            // IDs für das NÄCHSTE Gerät vorbereiten
-            generateIds();
-            log("Neue IDs generiert. Stecke nächstes Gerät an.", 'ok');
+                // 1. In Historie speichern
+                addToHistory({
+                    timestamp: new Date().toLocaleString('de-DE'),
+                    tid: tid,
+                    pin: pin,
+                    tags: tags,
+                    desc: desc
+                });
 
-            // Fokus visuell auf Flash zurücksetzen
-            document.getElementById('btn-flash').innerText = "🔌 NÄCHSTES FLASHEN";
+                // 2. Claim Assistant anzeigen
+                showClaimAssistant(tid, pin);
+
+                // 3. UI fuer naechstes Geraet vorbereiten
+                btnConf.classList.remove('active');
+                btnConf.disabled = false;
+                btnConf.innerText = "Config erneut";
+                btnConf.style.background = "#334155";
+                btnConf.style.color = "#94a3b8";
+
+                // 4. NEUE IDs fuer naechstes Geraet
+                generateIds();
+                log("Neue IDs generiert. Bereit fuer naechstes Geraet.", 'sys');
+
+                document.getElementById('btn-flash').innerText = "NAECHSTES FLASHEN";
+            }
         }
     }
 
@@ -642,8 +795,6 @@
 
     function loadProfiles() {
         const pSel = document.getElementById('profile-select');
-        if (!pSel) return;
-
         const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
         pSel.innerHTML = '<option value="">-- Profil --</option>';
         Object.keys(d).forEach(k => {
@@ -670,14 +821,14 @@
     function deleteProfile() {
         const pSel = document.getElementById('profile-select');
         const n = pSel.value;
-        if (!n) { log("Kein Profil gewählt.", 'err'); return; }
+        if (!n) { log("Kein Profil gewaehlt.", 'err'); return; }
 
-        if (confirm(`'${n}' löschen?`)) {
+        if (confirm(`'${n}' loeschen?`)) {
             const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
             delete d[n];
             localStorage.setItem('triton_profiles', JSON.stringify(d));
             loadProfiles();
-            log(`Profil gelöscht.`, 'sys');
+            log(`Profil geloescht.`, 'sys');
         }
     }
 
@@ -693,7 +844,7 @@
         }
     }
 
-    // --- LIVE MONITOR ENGINE ---
+    // --- LIVE MONITOR ---
     let monitorReader = null;
     let monitorPort = null;
     let isMonitoring = false;
@@ -701,29 +852,27 @@
     document.getElementById('btn-monitor').addEventListener('click', async () => {
         const btn = document.getElementById('btn-monitor');
 
-        // 1. TRENNEN (Falls aktiv)
         if (isMonitoring) {
             isMonitoring = false;
             try {
                 if (monitorReader) { await monitorReader.cancel(); monitorReader.releaseLock(); }
                 if (monitorPort) await monitorPort.close();
-            } catch (e) { console.log(e); }
+            } catch (e) {}
 
             monitorPort = null;
             monitorReader = null;
-            btn.innerText = "📡 VERBINDEN";
+            btn.innerText = "VERBINDEN";
             btn.style.background = "#222";
             log("Monitor gestoppt.", 'sys');
             return;
         }
 
-        // 2. VERBINDEN
         try {
             log("Starte Live-Monitor...", 'sys');
             monitorPort = await navigator.serial.requestPort();
             await monitorPort.open({ baudRate: 115200 });
 
-            btn.innerText = "🛑 TRENNEN";
+            btn.innerText = "TRENNEN";
             btn.style.background = "var(--danger)";
             isMonitoring = true;
             log("Monitor verbunden! (115200 Baud)", 'ok');
@@ -736,22 +885,16 @@
             while (isMonitoring) {
                 const { value, done } = await reader.read();
                 if (done) break;
-                if (value) {
-                    // Raw Output ins Log, trimmen um Leerzeilen zu vermeiden
-                    if (value.trim()) log(`[RAW] ${value.trim()}`, 'sys');
-                }
+                if (value && value.trim()) log(`[RAW] ${value.trim()}`, 'sys');
             }
 
         } catch (e) {
             log("Monitor Fehler: " + e.message, 'err');
-
-            // FIX: Hilfreicher Tipp bei blockiertem Port
             if (e.message.includes("already open") || e.message.includes("Resource busy")) {
-                log("TIPP: Reset-Taster am ESP drücken oder USB kurz trennen.", 'sys');
+                log("TIPP: Reset-Taster am ESP druecken oder USB kurz trennen.", 'sys');
             }
-
             isMonitoring = false;
-            btn.innerText = "📡 VERBINDEN";
+            btn.innerText = "VERBINDEN";
             btn.style.background = "#222";
         }
     });
