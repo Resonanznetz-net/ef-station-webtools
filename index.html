@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v28 | Knowledge & Clarity</title>
+    <title>Triton Cockpit v29 | Connectivity & Data</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -115,6 +115,22 @@
 
         .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .full { grid-column: span 2; }
+
+        /* MULTI-WIFI STYLES */
+        .wifi-row {
+            display: grid; grid-template-columns: 1fr 1fr 30px; gap: 5px; margin-bottom: 5px;
+            align-items: center;
+        }
+        .btn-mini {
+            height: 32px; width: 30px; padding: 0; display: flex; align-items: center; justify-content: center;
+            background: var(--bg-input); border: 1px solid var(--border); color: #888; cursor: pointer; border-radius: 4px;
+        }
+        .btn-mini:hover { color: white; border-color: var(--primary); }
+        .btn-add { color: var(--success); border-color: #052e16; }
+        .btn-remove { color: var(--danger); border-color: #3f1515; }
+
+        /* IMPORT BUTTON */
+        .file-input { display: none; }
         @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .full { grid-column: span 1; } }
 
         label { display: block; font-size: 0.7rem; color: var(--text-muted); margin-bottom: 3px; }
@@ -289,7 +305,7 @@
     </div>
 
     <header>
-        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v28 Knowledge & Clarity</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v29 Connectivity & Data</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -333,9 +349,11 @@
                     <div class="full"><label>KI KONTEXT</label><input type="text" id="desc" placeholder="Beschreibung..."></div>
                 </div>
                 <div style="border-top:1px solid #333; margin:10px 0;"></div>
-                <div class="form-grid">
-                    <div><label>WIFI SSID</label><input type="text" id="ssid"></div>
-                    <div><label>WIFI PASS</label><input type="password" id="pass"></div>
+                <label style="font-size:0.7rem; color:var(--text-muted); margin-bottom:3px;">WIFI VERBINDUNGEN <i class="info-icon" onclick="openHelp('wifi')" style="font-size:8px;">?</i></label>
+                <div id="wifi-container">
+                    <!-- Dynamische WiFi-Zeilen werden hier eingefuegt -->
+                </div>
+                <div class="form-grid" style="margin-top:10px;">
                     <div class="full">
                         <details>
                             <summary style="font-size:0.7rem; color:#666; cursor:pointer;">ERWEITERT</summary>
@@ -386,6 +404,8 @@
                 <h2>
                     <span>Protokoll <i class="info-icon" onclick="openHelp('ledger')">?</i></span>
                     <span>
+                        <button onclick="document.getElementById('import-file').click()" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Backup laden">Import</button>
+                        <input type="file" id="import-file" class="file-input" accept=".json" onchange="importData(this)">
                         <button onclick="exportData()" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Backup speichern">Export</button>
                         <button id="btn-clear-history" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Alle loeschen">Leeren</button>
                     </span>
@@ -440,7 +460,7 @@
 
     // --- INIT ---
     function init() {
-        console.log('Triton v28 Knowledge & Clarity Init...');
+        console.log('Triton v29 Connectivity & Data Init...');
 
         // 1. IDs generieren (force beim Start, damit Felder nicht leer)
         generateIds(true);
@@ -477,10 +497,48 @@
         loadProfiles();
         renderHistory();
 
-        // 5. Event Listener
+        // 5. Multi-WiFi initialisieren
+        initWifiRows();
+
+        // 6. Event Listener
         setupEventListeners();
 
         log("System bereit.", 'ok');
+    }
+
+    // --- MULTI-WIFI LOGIC ---
+    function initWifiRows() {
+        const container = document.getElementById('wifi-container');
+        if (container.children.length === 0) addWifiRow();
+    }
+
+    window.addWifiRow = function(ssid = '', pass = '') {
+        const container = document.getElementById('wifi-container');
+        const div = document.createElement('div');
+        div.className = 'wifi-row';
+        const isFirst = container.children.length === 0;
+        div.innerHTML = `
+            <input type="text" class="wf-ssid" placeholder="SSID" value="${ssid}">
+            <input type="password" class="wf-pass" placeholder="Passwort" value="${pass}">
+            ${isFirst
+                ? `<button type="button" class="btn-mini btn-add" onclick="addWifiRow()">+</button>`
+                : `<button type="button" class="btn-mini btn-remove" onclick="this.parentElement.remove()">−</button>`}
+        `;
+        container.appendChild(div);
+    };
+
+    function getWifiConfig() {
+        const ssids = [], passes = [];
+        document.querySelectorAll('.wifi-row').forEach(row => {
+            const s = row.querySelector('.wf-ssid').value.trim();
+            const p = row.querySelector('.wf-pass').value;
+            if (s) { ssids.push(s); passes.push(p); }
+        });
+        return {
+            ssidStr: ssids.join(';'),
+            passStr: passes.join(';'),
+            list: ssids.map((s, i) => ({ ssid: s, pass: passes[i] }))
+        };
     }
 
     // --- ID MANAGEMENT ---
@@ -574,14 +632,17 @@
                 const tidDiv = document.createElement('div');
                 tidDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #0a0d12; border-radius: 4px;';
 
-                // TID Header (sekundaer)
+                // TID Header (sekundaer) - mit WiFi-Info
                 const tidHeader = document.createElement('div');
                 tidHeader.style.cssText = 'display:flex; justify-content:space-between; align-items:center; cursor:pointer;';
+                const wifiDisplay = g.items[0].wifi
+                    ? `📶 ${g.items[0].wifi[0].ssid}${g.items[0].wifi.length > 1 ? ' (+' + (g.items[0].wifi.length - 1) + ')' : ''}`
+                    : (g.items[0].ssid ? `📶 ${g.items[0].ssid}` : '');
                 tidHeader.innerHTML = `
                     <div>
                         <span style="color:var(--accent); font-family:monospace;">${tid}</span>
                         <span style="font-size:0.65rem; color:#666;"> (${g.items.length}x)</span>
-                        ${g.ssid ? `<span style="font-size:0.6rem; color:#555; margin-left:8px;">📶 ${g.ssid}</span>` : ''}
+                        ${wifiDisplay ? `<span style="font-size:0.6rem; color:#555; margin-left:8px;">${wifiDisplay}</span>` : ''}
                     </div>
                     <div style="display:flex; gap:5px;">
                         <button class="btn-copy-small btn-restore" title="IDs laden">Laden</button>
@@ -616,7 +677,7 @@
 
                 tidDiv.appendChild(tidHeader);
 
-                // Device Liste
+                // Device Liste mit Info-Button
                 const devList = document.createElement('div');
                 devList.className = 'ledger-items device-list';
                 devList.style.cssText = 'margin-top:5px; padding-left:10px; border-left:2px solid #333;';
@@ -628,12 +689,13 @@
                             <span style="color:#aaa;">${item.mac || 'Keine MAC'}</span>
                             <span style="color:#444; margin-left:8px;">${item.timestamp}</span>
                         </div>
+                        <div style="display:flex; gap:3px;">
+                            <button class="btn-info-detail" style="background:none; border:1px solid #444; color:#888; cursor:pointer; font-size:0.65rem; padding:2px 5px; border-radius:3px;" title="Details anzeigen">i</button>
+                            <button class="btn-del-single" style="background:none; border:none; color:#555; cursor:pointer; font-size:0.8rem;">×</button>
+                        </div>
                     `;
-                    const delBtn = document.createElement('button');
-                    delBtn.textContent = '×';
-                    delBtn.style.cssText = 'background:none; border:none; color:#555; cursor:pointer; font-size:0.8rem;';
-                    delBtn.onclick = (e) => { e.stopPropagation(); deleteHistoryItem(item.origIdx); };
-                    itemRow.appendChild(delBtn);
+                    itemRow.querySelector('.btn-info-detail').onclick = (e) => { e.stopPropagation(); showDeviceDetails(item.origIdx); };
+                    itemRow.querySelector('.btn-del-single').onclick = (e) => { e.stopPropagation(); deleteHistoryItem(item.origIdx); };
                     devList.appendChild(itemRow);
                 });
                 tidDiv.appendChild(devList);
@@ -926,12 +988,11 @@
 
     // --- CONFIG ENGINE (Seamless Port Handover) ---
     async function handleConfig() {
-        const ssid = document.getElementById('ssid').value;
-        const pass = document.getElementById('pass').value;
-
-        if (!ssid || !pass) {
-            log("SSID/Passwort fehlen!", 'err');
-            alert("Bitte SSID und Passwort eingeben!");
+        // MULTI-WIFI: Daten sammeln
+        const wifiData = getWifiConfig();
+        if (!wifiData.ssidStr) {
+            log("Mindestens eine SSID eingeben!", 'err');
+            alert("Bitte mindestens eine SSID eingeben!");
             return;
         }
 
@@ -982,11 +1043,11 @@
                 log("Nutze offenen Port...", 'sys');
             }
 
-            // V2 Protocol - Data Prep
+            // V2 Protocol - Data Prep (Multi-WiFi: SSID;SSID2|PASS;PASS2)
             const secret = document.getElementById('secret').value;
             const host = document.getElementById('host').value.replace("https://", "").replace(/\/$/g, "");
 
-            const raw = `${tid}|${pin}|${secret}|${host}|${ssid}|${pass}|${tags}|${desc}`;
+            const raw = `${tid}|${pin}|${secret}|${host}|${wifiData.ssidStr}|${wifiData.passStr}|${tags}|${desc}`;
             const enc = new TextEncoder().encode(raw);
 
             let sum = 0x04 + enc.length;
@@ -998,7 +1059,7 @@
             packet.set(enc, 2);
             packet[packet.length - 1] = sum & 0xFF;
 
-            log(`Sende ${enc.length} Bytes...`, 'sys');
+            log(`Sende ${enc.length} Bytes (${wifiData.list.length} WLAN)...`, 'sys');
             btnConf.innerText = "Sende...";
 
             writer = portToUse.writable.getWriter();
@@ -1009,7 +1070,7 @@
             log("CONFIG GESENDET!", 'ok');
             configSuccess = true;
 
-            // --- ERFOLG: Ledger & Claim Assistant (mit MAC & SSID!) ---
+            // --- ERFOLG: FULL DATA SAVE (mit WiFi-Liste, Host, Secret) ---
             addToHistory({
                 timestamp: new Date().toLocaleString('de-DE'),
                 tid: tid,
@@ -1017,7 +1078,9 @@
                 tags: tags,
                 desc: desc,
                 mac: currentMac,
-                ssid: ssid
+                wifi: wifiData.list,
+                host: host,
+                secret: secret
             });
             currentMac = "Unbekannt"; // Reset fuer naechstes Geraet
 
@@ -1250,7 +1313,7 @@
             profiles: JSON.parse(localStorage.getItem('triton_profiles') || '{}'),
             ledger: JSON.parse(localStorage.getItem('triton_ledger') || '[]'),
             exportedAt: new Date().toISOString(),
-            version: 'v28'
+            version: 'v29'
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1329,6 +1392,27 @@
                     <summary>Export / Backup</summary>
                     <p>Der Export-Button speichert alle Profile und das Protokoll als JSON-Datei. Nuetzlich als Backup oder fuer Dokumentation.</p>
                 </details>
+                <details>
+                    <summary>Import</summary>
+                    <p>Lade ein Backup um Profile und Geraete wiederherzustellen. Duplikate werden automatisch erkannt und uebersprungen.</p>
+                </details>
+            `
+        },
+        wifi: {
+            title: 'Multi-WiFi Verbindungen',
+            content: `
+                <details open>
+                    <summary>Mehrere WLANs konfigurieren</summary>
+                    <p>Mit dem + Button kannst du weitere WLAN-Zugangsdaten hinzufuegen. Das Geraet versucht dann alle Netzwerke der Reihe nach.</p>
+                </details>
+                <details>
+                    <summary>Wann ist das nuetzlich?</summary>
+                    <p>Ideal fuer mobile Geraete oder wenn du Backup-Netzwerke haben willst (z.B. Haupt-WLAN + Hotspot).</p>
+                </details>
+                <details>
+                    <summary>Reihenfolge</summary>
+                    <p>Das erste WLAN in der Liste wird zuerst versucht. Falls es nicht erreichbar ist, wird das naechste probiert.</p>
+                </details>
             `
         }
     };
@@ -1355,6 +1439,94 @@
     document.getElementById('help-modal').addEventListener('click', (e) => {
         if (e.target.classList.contains('modal-overlay')) closeHelp();
     });
+
+    // --- DEVICE DETAILS MODAL ---
+    window.showDeviceDetails = function(idx) {
+        const history = JSON.parse(localStorage.getItem('triton_ledger') || '[]');
+        const item = history[idx];
+        if (!item) return;
+
+        // WiFi-Anzeige (Multi-WiFi oder Legacy)
+        const wifiHtml = item.wifi
+            ? item.wifi.map(w => `<div style="margin:3px 0;">📶 <strong>${w.ssid}</strong> <span style="color:#666;">(${w.pass ? '****' : 'kein PW'})</span></div>`).join('')
+            : `<div>📶 ${item.ssid || '-'}</div>`;
+
+        const content = `
+            <div style="font-size:0.9rem; color:#ccc;">
+                <div style="background:#111; padding:12px; border-radius:6px; margin-bottom:15px;">
+                    <div style="color:var(--accent); font-weight:bold; font-size:1.1rem;">${item.tid}</div>
+                    <div style="font-family:monospace; font-size:0.85rem; margin-top:5px;">PIN: <strong>${item.pin}</strong></div>
+                    <div style="font-family:monospace; font-size:0.75rem; margin-top:8px; color:#666;">MAC: ${item.mac || 'nicht erfasst'}</div>
+                    <div style="font-size:0.7rem; color:#555; margin-top:5px;">${item.timestamp}</div>
+                </div>
+
+                <h4 style="margin:15px 0 8px 0; color:var(--text-main); border-bottom:1px solid #333; padding-bottom:5px;">Netzwerk</h4>
+                <div style="margin-bottom:15px;">${wifiHtml}</div>
+
+                <h4 style="margin:15px 0 8px 0; color:var(--text-main); border-bottom:1px solid #333; padding-bottom:5px;">Backend</h4>
+                <div style="font-family:monospace; font-size:0.8rem; word-break:break-all; background:#0a0d12; padding:8px; border-radius:4px;">
+                    Host: ${item.host || 'Standard'}<br>
+                    Secret: ${item.secret ? '●●●●●●' : '-'}
+                </div>
+
+                <h4 style="margin:15px 0 8px 0; color:var(--text-main); border-bottom:1px solid #333; padding-bottom:5px;">Kontext</h4>
+                <div style="font-style:italic; color:#aaa; margin-bottom:8px;">"${item.desc || '-'}"</div>
+                <div><span class="tag-badge" style="background:#333; padding:3px 8px; border-radius:4px;">${item.tags}</span></div>
+            </div>
+        `;
+
+        const modal = document.getElementById('help-modal');
+        document.getElementById('help-content').innerHTML = `<h4 style="color:var(--accent); margin-top:0;">Geraete-Details</h4>${content}`;
+        modal.classList.add('open');
+    };
+
+    // --- IMPORT FUNKTION ---
+    window.importData = function(input) {
+        const file = input.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+
+                // 1. Merge Profiles
+                if (data.profiles) {
+                    const currentProfs = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
+                    Object.assign(currentProfs, data.profiles);
+                    localStorage.setItem('triton_profiles', JSON.stringify(currentProfs));
+                    loadProfiles();
+                    log(`${Object.keys(data.profiles).length} Profile importiert.`, 'ok');
+                }
+
+                // 2. Merge Ledger (Smart: Duplikate via Timestamp+TID erkennen)
+                if (data.ledger && data.ledger.length > 0) {
+                    let currentLedger = JSON.parse(localStorage.getItem('triton_ledger') || '[]');
+                    const signatures = new Set(currentLedger.map(i => i.timestamp + i.tid));
+
+                    let added = 0;
+                    data.ledger.forEach(entry => {
+                        if (!signatures.has(entry.timestamp + entry.tid)) {
+                            currentLedger.push(entry);
+                            signatures.add(entry.timestamp + entry.tid);
+                            added++;
+                        }
+                    });
+
+                    localStorage.setItem('triton_ledger', JSON.stringify(currentLedger));
+                    renderHistory();
+                    log(`${added} Geraete importiert (${data.ledger.length - added} Duplikate).`, 'ok');
+                }
+
+                log("Import abgeschlossen.", 'ok');
+            } catch (err) {
+                log("Import Fehler: " + err.message, 'err');
+                alert("Fehler beim Import: " + err.message);
+            }
+            input.value = ''; // Reset file input
+        };
+        reader.readAsText(file);
+    };
 
 })();
 </script>
