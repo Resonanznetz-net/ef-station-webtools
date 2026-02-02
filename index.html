@@ -223,7 +223,10 @@
         </div>
 
         <div class="col-right">
-            <div class="monitor-header">SYSTEM MONITOR</div>
+            <div class="monitor-header" style="display:flex; justify-content:space-between; align-items:center;">
+                <span>SYSTEM MONITOR</span>
+                <button id="btn-monitor" style="background:#222; color:#fff; border:1px solid #444; padding:4px 8px; font-size:0.7rem; cursor:pointer; border-radius:4px;">📡 VERBINDEN</button>
+            </div>
             <div id="term"></div>
         </div>
 
@@ -343,11 +346,14 @@
         else if (type === 'ok') div.style.color = '#4ade80';
         else if (type === 'sys') div.style.color = '#38bdf8';
 
+        // SMART SCROLL: Nur scrollen wenn User schon unten ist (Toleranz 50px)
+        const isAtBottom = (term.scrollHeight - term.scrollTop - term.clientHeight) < 50;
+
         term.appendChild(div);
-        // FIX: Scroll erzwingen (setTimeout garantiert DOM-Update)
-        setTimeout(() => {
+
+        if (isAtBottom) {
             term.scrollTop = term.scrollHeight;
-        }, 0);
+        }
     }
 
     function setProgress(percent, msg) {
@@ -494,12 +500,17 @@
             btnConf.classList.add('active');
             btnConf.innerText = "▶ KONFIGURATION SENDEN";
 
+            // FIX: Flash Button sofort wieder freigeben für Massenproduktion
+            btnFlash.disabled = false;
+            btnFlash.innerText = "🔌 NÄCHSTES FLASHEN";
+            log("Bereit für nächstes Gerät.", 'sys');
+
         } catch (e) {
             log("Flash Fehler: " + e.message, 'err');
             console.error(e);
             setProgress(0, "Fehler");
-            btnFlash.innerText = "❌ Retry";
-            btnFlash.disabled = false;
+            btnFlash.innerText = "❌ Fehler - Retry";
+            btnFlash.disabled = false; // Auch bei Fehler wieder freigeben
 
             try { if (transport) await transport.disconnect(); } catch (ex) {}
             try { if (device) await device.close(); } catch (ex) {}
@@ -602,20 +613,27 @@
 
         } catch (e) {
             log("Config Fehler: " + e.message, 'err');
+            // Button bei Fehler wieder freigeben
+            btnConf.disabled = false;
+            btnConf.innerText = "❌ Retry Config";
         } finally {
             try { if (reader) reader.releaseLock(); } catch (e) {}
             try { if (writer) writer.releaseLock(); } catch (e) {}
             try { if (port) await port.close(); } catch (e) {}
 
-            btnConf.innerText = "✓ Fertig / Nächstes";
+            // UI Reset für Massenproduktion
+            btnConf.classList.remove('active');
+            btnConf.disabled = false;
+            btnConf.innerText = "↺ Config erneut senden";
             btnConf.style.background = "#334155";
             btnConf.style.color = "#94a3b8";
-            btnConf.disabled = false;
 
-            // Neue ID/PIN
-            document.getElementById('tid').value = "grp_" + Math.random().toString(36).substring(2, 6);
-            document.getElementById('pin').value = Math.floor(1000 + Math.random() * 9000);
-            log("Neue ID/PIN generiert.", 'sys');
+            // IDs für das NÄCHSTE Gerät vorbereiten
+            generateIds();
+            log("Neue IDs generiert. Stecke nächstes Gerät an.", 'ok');
+
+            // Fokus visuell auf Flash zurücksetzen
+            document.getElementById('btn-flash').innerText = "🔌 NÄCHSTES FLASHEN";
         }
     }
 
@@ -674,6 +692,63 @@
             log(`Profil '${n}' geladen.`, 'sys');
         }
     }
+
+    // --- LIVE MONITOR ENGINE ---
+    let monitorReader = null;
+    let monitorPort = null;
+    let isMonitoring = false;
+
+    document.getElementById('btn-monitor').addEventListener('click', async () => {
+        const btn = document.getElementById('btn-monitor');
+
+        // 1. TRENNEN (Falls aktiv)
+        if (isMonitoring) {
+            isMonitoring = false;
+            try {
+                if (monitorReader) { await monitorReader.cancel(); monitorReader.releaseLock(); }
+                if (monitorPort) await monitorPort.close();
+            } catch (e) { console.log(e); }
+
+            monitorPort = null;
+            monitorReader = null;
+            btn.innerText = "📡 VERBINDEN";
+            btn.style.background = "#222";
+            log("Monitor gestoppt.", 'sys');
+            return;
+        }
+
+        // 2. VERBINDEN
+        try {
+            log("Starte Live-Monitor...", 'sys');
+            monitorPort = await navigator.serial.requestPort();
+            await monitorPort.open({ baudRate: 115200 });
+
+            btn.innerText = "🛑 TRENNEN";
+            btn.style.background = "var(--danger)";
+            isMonitoring = true;
+            log("Monitor verbunden! (115200 Baud)", 'ok');
+
+            const decoder = new TextDecoderStream();
+            monitorPort.readable.pipeTo(decoder.writable);
+            const reader = decoder.readable.getReader();
+            monitorReader = reader;
+
+            while (isMonitoring) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                if (value) {
+                    // Raw Output ins Log, trimmen um Leerzeilen zu vermeiden
+                    if (value.trim()) log(`[RAW] ${value.trim()}`, 'sys');
+                }
+            }
+
+        } catch (e) {
+            log("Monitor Fehler: " + e.message, 'err');
+            isMonitoring = false;
+            btn.innerText = "📡 VERBINDEN";
+            btn.style.background = "#222";
+        }
+    });
 
 })();
 </script>
