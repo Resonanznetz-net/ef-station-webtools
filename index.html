@@ -744,6 +744,12 @@
 
         } catch (e) {
             log("Monitor Fehler: " + e.message, 'err');
+
+            // FIX: Hilfreicher Tipp bei blockiertem Port
+            if (e.message.includes("already open") || e.message.includes("Resource busy")) {
+                log("TIPP: Reset-Taster am ESP drücken oder USB kurz trennen.", 'sys');
+            }
+
             isMonitoring = false;
             btn.innerText = "📡 VERBINDEN";
             btn.style.background = "#222";
