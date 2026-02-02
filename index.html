@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v29.1 | Connectivity & Data</title>
+    <title>Triton Cockpit v30 | Tag Cleaner</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -305,7 +305,7 @@
     </div>
 
     <header>
-        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v29.1 Connectivity & Data</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v30 Tag Cleaner</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -460,7 +460,7 @@
 
     // --- INIT ---
     function init() {
-        console.log('Triton v29.1 Fix Init...');
+        console.log('Triton v30 Tag Cleaner Init...');
 
         // 1. IDs generieren (force beim Start, damit Felder nicht leer)
         generateIds(true);
@@ -606,19 +606,31 @@
             const tagDiv = document.createElement('div');
             tagDiv.className = 'ledger-group';
 
-            // Tag Header (primaer)
+            // Tag Header (primaer) mit Delete-Button (v30)
             const tagHeader = document.createElement('div');
             tagHeader.className = 'ledger-header';
             const totalDevices = Object.values(tidGroups).reduce((sum, g) => sum + g.items.length, 0);
+
             tagHeader.innerHTML = `
-                <div>
+                <div style="flex:1;">
                     <strong style="color:var(--warning);">${tagKey}</strong>
                     <span style="font-size:0.7rem; color:#888;"> (${totalDevices} Geraete)</span>
                 </div>
+                <button class="btn-copy-small btn-del-tag" style="background:#3f1515; margin-left:10px;" title="Alle Geraete dieser Tag-Gruppe loeschen">X</button>
             `;
-            tagHeader.addEventListener('click', () => {
+
+            // Toggle Event (nicht bei Button-Klick)
+            tagHeader.addEventListener('click', (e) => {
+                if (e.target.tagName === 'BUTTON') return;
                 tagDiv.querySelector('.ledger-items').classList.toggle('open');
             });
+
+            // Delete Tag Event
+            tagHeader.querySelector('.btn-del-tag').addEventListener('click', (e) => {
+                e.stopPropagation();
+                deleteTag(tagKey);
+            });
+
             tagDiv.appendChild(tagHeader);
 
             // TID Sub-Gruppen (sekundaer)
@@ -1344,13 +1356,32 @@
         log(`Batch '${tid}' geloescht.`, 'sys');
     }
 
+    // --- TAG DELETE (v30) ---
+    window.deleteTag = function(tagKey) {
+        if (!confirm(`ACHTUNG: Alle Geraete mit Tag '${tagKey}' unwiderruflich loeschen?`)) return;
+
+        let db = JSON.parse(localStorage.getItem('triton_ledger') || '[]');
+        const before = db.length;
+
+        // Filterlogik: Behalte alles, was NICHT diesen Tag-Key hat
+        db = db.filter(item => {
+            const currentKey = item.tags || 'ohne-tags';
+            return currentKey !== tagKey;
+        });
+
+        const deleted = before - db.length;
+        localStorage.setItem('triton_ledger', JSON.stringify(db));
+        renderHistory();
+        log(`${deleted} Geraete (Tag: ${tagKey}) geloescht.`, 'sys');
+    };
+
     // --- EXPORT FUNKTION ---
     window.exportData = function() {
         const data = {
             profiles: JSON.parse(localStorage.getItem('triton_profiles') || '{}'),
             ledger: JSON.parse(localStorage.getItem('triton_ledger') || '[]'),
             exportedAt: new Date().toISOString(),
-            version: 'v29.1'
+            version: 'v30'
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
