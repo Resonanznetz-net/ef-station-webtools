@@ -63,9 +63,17 @@
             overflow-y: auto; min-width: 0;
         }
 
+        /* RECHTE SPALTE (Container) - Scroll-Fix */
         .col-right {
-            display: flex; flex-direction: column; height: 100%; min-width: 0;
-            border: 1px solid var(--border); border-radius: 8px; background: #000;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            min-height: 0; /* WICHTIG für Scrollen in Flexbox */
+            min-width: 0;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: #000;
+            overflow: hidden; /* Hält alles im Kasten */
         }
 
         .card {
@@ -120,25 +128,34 @@
         }
 
         .monitor-header {
-            padding: 10px 15px; border-bottom: 1px solid #333;
-            color: #888; font-size: 0.8rem; text-transform: uppercase;
+            padding: 10px 15px;
+            border-bottom: 1px solid #333;
+            color: #888;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            flex-shrink: 0; /* Header darf nicht schrumpfen */
         }
 
-        /* Scrollbar immer anzeigen & smooth scroll */
+        /* MONITOR INHALT (Scrollbereich) - Flexbox Scroll Fix */
         #term {
             padding: 15px;
             font-family: 'Consolas', monospace;
             font-size: 0.85rem;
             color: #ccc;
+
+            /* DER SCROLL FIX */
             flex: 1;
-            overflow-y: scroll;
+            height: 0; /* Trick: Zwingt Browser zur Neuberechnung */
+            min-height: 0;
+            overflow-y: auto;
+
             white-space: pre-wrap;
             scroll-behavior: smooth;
         }
 
-        /* Custom Scrollbar */
-        #term::-webkit-scrollbar { width: 10px; background: #111; }
-        #term::-webkit-scrollbar-thumb { background: #333; border-radius: 5px; }
+        /* Scrollbar Styling (für Chrome/Edge) */
+        #term::-webkit-scrollbar { width: 12px; background: #0b0f19; }
+        #term::-webkit-scrollbar-thumb { background: #3b82f6; border-radius: 6px; border: 3px solid #0b0f19; }
 
         @keyframes pulse {
             0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
@@ -327,10 +344,10 @@
         else if (type === 'sys') div.style.color = '#38bdf8';
 
         term.appendChild(div);
-        // FIX: Sicherstellen, dass Scroll auch bei schnellem Rendering greift
-        requestAnimationFrame(() => {
+        // FIX: Scroll erzwingen (setTimeout garantiert DOM-Update)
+        setTimeout(() => {
             term.scrollTop = term.scrollHeight;
-        });
+        }, 0);
     }
 
     function setProgress(percent, msg) {
