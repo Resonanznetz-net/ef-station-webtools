@@ -3,11 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v16.2 | Module Fix</title>
+    <title>Triton Cockpit v17 | Final Fix</title>
     <script type="module">
-        import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
+        import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/lib/index.js?module';
         window.esptoolJs = { ESPLoader, Transport };
-        console.log("esptool-js Module geladen.");
+        console.log("esptool-js v0.5.4 Module ready.");
     </script>
     <style>
         :root {
@@ -144,7 +144,7 @@
     </div>
 
     <header>
-        <h1>Triton Engine <span style="font-size:0.6em; color:#666;">v16.2</span></h1>
+        <h1>Triton Engine <span style="font-size:0.6em; color:#666;">v17</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -232,7 +232,7 @@
     }
 
     function init() {
-        console.log('Triton v16.2 Init...');
+        console.log('Triton v17 Init...');
 
         // 1. ID/PIN sofort generieren
         generateIds();
@@ -353,7 +353,8 @@
                     reader.readAsBinaryString(blob);
                 });
 
-                fileArray.push({ data: data, address: parseInt(part.offset) });
+                // Sicherstellen, dass data ein Binary String ist (v0.5.4 Anforderung)
+                fileArray.push({ data: data, address: Number(part.offset) });
             }
             return fileArray;
         } catch (e) {
@@ -387,7 +388,8 @@
             log("Wähle Serial Port...", 'sys');
             device = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
 
-            transport = new Transport(device);
+            // FIX: Transport mit 'true' Flag für C3 Native USB Support & Tracing
+            transport = new Transport(device, true);
 
             const termStub = {
                 clean: () => {},
@@ -399,7 +401,12 @@
             btnFlash.innerText = "⏳ Bootloader...";
             setProgress(5, "Verbinde...");
 
-            espLoader = new ESPLoader(transport, 921600, termStub);
+            // FIX: ESPLoader erwartet Options-Objekt!
+            espLoader = new ESPLoader({
+                transport: transport,
+                baudrate: 921600,
+                terminal: termStub
+            });
             const chip = await espLoader.main_fn();
             log(`Chip: ${chip}`, 'ok');
             setProgress(10, "Chip OK");
@@ -407,15 +414,19 @@
             log("Starte Flash...", 'sys');
             btnFlash.innerText = "⏳ Flashen...";
 
-            await espLoader.write_flash(
-                fileArray,
-                'keep', 'keep', 'keep',
-                false, false,
-                (idx, written, total) => {
+            // FIX: Nutzung der expliziten Methode writeFlash (CamelCase in neueren Versionen bevorzugt)
+            await espLoader.writeFlash({
+                fileArray: fileArray,
+                flashSize: 'keep',
+                flashMode: 'dio', // C3 nutzt meist DIO
+                flashFreq: '80m',
+                eraseAll: false,
+                compress: true, // Wichtig für Speed!
+                reportProgress: (idx, written, total) => {
                     const pct = 10 + ((written / total) * 85);
-                    setProgress(pct, `Teil ${idx + 1}...`);
+                    setProgress(pct, `Flash: ${Math.round((written/total)*100)}%`);
                 }
-            );
+            });
 
             setProgress(100, "Flash OK!");
             log("Firmware geschrieben.", 'ok');
