@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v27 | Operator Excellence</title>
+    <title>Triton Cockpit v28 | Knowledge & Clarity</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -237,6 +237,48 @@
             padding: 20px; text-align: center; color: var(--text-muted);
             font-size: 0.85rem;
         }
+
+        /* KNOWLEDGE BASE MODAL */
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.8); z-index: 1000; align-items: center; justify-content: center;
+        }
+        .modal-overlay.open { display: flex; }
+        .modal-box {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+            max-width: 600px; width: 90%; max-height: 80vh; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 20px; border-bottom: 1px solid var(--border);
+        }
+        .modal-header h3 { margin: 0; color: var(--accent); font-size: 1rem; }
+        .modal-close {
+            background: none; border: none; color: #666; font-size: 1.5rem;
+            cursor: pointer; line-height: 1;
+        }
+        .modal-close:hover { color: white; }
+        .modal-content {
+            padding: 20px; overflow-y: auto; flex: 1;
+        }
+
+        /* AKKORDEON (details/summary) */
+        .modal-content details {
+            border-bottom: 1px solid #333; padding: 10px 0;
+        }
+        .modal-content summary {
+            cursor: pointer; font-weight: bold; color: var(--text-main);
+            padding: 5px 0; list-style: none;
+        }
+        .modal-content summary::-webkit-details-marker { display: none; }
+        .modal-content summary::before {
+            content: '▶ '; color: var(--primary); font-size: 0.8em; margin-right: 5px;
+        }
+        .modal-content details[open] summary::before { content: '▼ '; }
+        .modal-content details p {
+            margin: 10px 0 5px 15px; color: var(--text-muted); font-size: 0.85rem; line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -247,7 +289,7 @@
     </div>
 
     <header>
-        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v27 Operator Excellence</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v28 Knowledge & Clarity</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -278,7 +320,7 @@
 
             <div class="card">
                 <h2 style="display:flex; justify-content:space-between; align-items:center;">
-                    <span>2. Konfiguration <i class="info-icon" title="WLAN-Zugangsdaten und Geraete-Identitaet. Tenant ID = Gruppen-ID fuer mehrere Geraete.">?</i></span>
+                    <span>2. Konfiguration <i class="info-icon" onclick="openHelp('config')">?</i></span>
                     <span style="display:flex; gap:5px;">
                         <button id="btn-lock" class="btn-icon" style="padding:2px 6px; border-color:var(--success);" title="IDs fixieren (Batch Mode)">🔒</button>
                         <button id="btn-new-ids" class="btn-icon" style="padding:2px 6px;" title="Neue IDs wuerfeln">🎲</button>
@@ -311,7 +353,7 @@
             <div id="claim-card" class="card" style="display:none; border-left:4px solid var(--success); background:rgba(16,185,129,0.05); padding:12px;">
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
                     <h2 style="color:var(--success); margin:0; border:none; padding:0; font-size:0.85rem;">
-                        3. FERTIG! <i class="info-icon" title="Geraet ist im WLAN. Jetzt mit Telegram-Account verknuepfen um es zu steuern.">?</i>
+                        3. FERTIG! <i class="info-icon" onclick="openHelp('claim')">?</i>
                     </h2>
                     <button onclick="hideClaimAssistant()" style="background:none; border:none; color:#666; cursor:pointer; font-size:1rem;">&times;</button>
                 </div>
@@ -342,7 +384,7 @@
         <div class="col-right">
             <div class="card" style="flex:1;">
                 <h2>
-                    <span>Protokoll <i class="info-icon" title="Historie aller Geraete. Batch-IDs wiederherstellen oder Claim-Codes abrufen.">?</i></span>
+                    <span>Protokoll <i class="info-icon" onclick="openHelp('ledger')">?</i></span>
                     <span>
                         <button onclick="exportData()" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Backup speichern">Export</button>
                         <button id="btn-clear-history" class="btn-icon" style="padding:4px 8px; font-size:0.7rem;" title="Alle loeschen">Leeren</button>
@@ -357,6 +399,19 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- KNOWLEDGE BASE MODAL -->
+    <div id="help-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>Triton Knowledge Base</h3>
+                <button class="modal-close" onclick="closeHelp()">&times;</button>
+            </div>
+            <div class="modal-content" id="help-content">
+                <!-- Inhalt wird dynamisch geladen -->
+            </div>
+        </div>
     </div>
 
 <script>
@@ -385,7 +440,7 @@
 
     // --- INIT ---
     function init() {
-        console.log('Triton v27 Operator Excellence Init...');
+        console.log('Triton v28 Knowledge & Clarity Init...');
 
         // 1. IDs generieren (force beim Start, damit Felder nicht leer)
         generateIds(true);
@@ -474,87 +529,120 @@
             return;
         }
 
-        // Gruppieren nach TID
-        const groups = {};
+        // NEU: Gruppieren nach TAGS (primaer), dann TID (sekundaer)
+        const tagGroups = {};
         history.forEach((item, idx) => {
-            if (!groups[item.tid]) {
-                groups[item.tid] = { items: [], tags: item.tags, pin: item.pin };
+            const tagKey = item.tags || 'ohne-tags';
+            if (!tagGroups[tagKey]) {
+                tagGroups[tagKey] = {};
             }
-            groups[item.tid].items.push({ ...item, origIdx: idx });
+            if (!tagGroups[tagKey][item.tid]) {
+                tagGroups[tagKey][item.tid] = { items: [], pin: item.pin, ssid: item.ssid };
+            }
+            tagGroups[tagKey][item.tid].items.push({ ...item, origIdx: idx });
         });
 
-        Object.keys(groups).forEach(tid => {
-            const g = groups[tid];
-            const claimCmd = `/claim ${tid} ${g.pin}`;
-            const groupDiv = document.createElement('div');
-            groupDiv.className = 'ledger-group';
+        // Render: Tag-Gruppen
+        Object.keys(tagGroups).forEach(tagKey => {
+            const tidGroups = tagGroups[tagKey];
+            const tagDiv = document.createElement('div');
+            tagDiv.className = 'ledger-group';
 
-            // Header
-            const header = document.createElement('div');
-            header.className = 'ledger-header';
-            header.innerHTML = `
+            // Tag Header (primaer)
+            const tagHeader = document.createElement('div');
+            tagHeader.className = 'ledger-header';
+            const totalDevices = Object.values(tidGroups).reduce((sum, g) => sum + g.items.length, 0);
+            tagHeader.innerHTML = `
                 <div>
-                    <strong style="color:var(--accent);">${tid}</strong>
-                    <span style="font-size:0.7rem; color:#888;"> (${g.items.length}x)</span>
-                    <div style="font-size:0.65rem; color:#666;">${g.tags || 'no-tags'}</div>
-                </div>
-                <div style="display:flex; gap:5px;">
-                    <button class="btn-copy-small btn-restore" title="IDs laden">Laden</button>
-                    <button class="btn-copy-small btn-claim" title="${claimCmd}">Code</button>
-                    <button class="btn-copy-small btn-delete-batch" title="Batch loeschen" style="background:#3f1515;">X</button>
+                    <strong style="color:var(--warning);">${tagKey}</strong>
+                    <span style="font-size:0.7rem; color:#888;"> (${totalDevices} Geraete)</span>
                 </div>
             `;
-
-            // Toggle Items
-            header.addEventListener('click', (e) => {
-                if (e.target.tagName === 'BUTTON') return;
-                groupDiv.querySelector('.ledger-items').classList.toggle('open');
+            tagHeader.addEventListener('click', () => {
+                tagDiv.querySelector('.ledger-items').classList.toggle('open');
             });
+            tagDiv.appendChild(tagHeader);
 
-            // Restore Button
-            header.querySelector('.btn-restore').addEventListener('click', () => {
-                document.getElementById('tid').value = tid;
-                document.getElementById('pin').value = g.pin;
-                log(`Batch '${tid}' geladen.`, 'ok');
-            });
+            // TID Sub-Gruppen (sekundaer)
+            const tidContainer = document.createElement('div');
+            tidContainer.className = 'ledger-items';
 
-            // Copy Button
-            header.querySelector('.btn-claim').addEventListener('click', () => {
-                navigator.clipboard.writeText(claimCmd);
-                log(`Kopiert: ${claimCmd}`, 'ok');
-            });
+            Object.keys(tidGroups).forEach(tid => {
+                const g = tidGroups[tid];
+                const claimCmd = `/claim ${tid} ${g.pin}`;
 
-            // Delete Batch Button
-            header.querySelector('.btn-delete-batch').addEventListener('click', () => {
-                deleteBatch(tid);
-            });
+                const tidDiv = document.createElement('div');
+                tidDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #0a0d12; border-radius: 4px;';
 
-            groupDiv.appendChild(header);
-
-            // Items Liste (mit MAC)
-            const itemsDiv = document.createElement('div');
-            itemsDiv.className = 'ledger-items';
-            g.items.forEach(item => {
-                const itemRow = document.createElement('div');
-                itemRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:4px 0; border-bottom:1px solid #222; font-size:0.75rem;';
-                itemRow.innerHTML = `
+                // TID Header (sekundaer)
+                const tidHeader = document.createElement('div');
+                tidHeader.style.cssText = 'display:flex; justify-content:space-between; align-items:center; cursor:pointer;';
+                tidHeader.innerHTML = `
                     <div>
-                        <div style="color:#aaa;">${item.mac || 'Keine MAC'}</div>
-                        <div style="color:#555; font-size:0.65rem;">${item.timestamp}</div>
+                        <span style="color:var(--accent); font-family:monospace;">${tid}</span>
+                        <span style="font-size:0.65rem; color:#666;"> (${g.items.length}x)</span>
+                        ${g.ssid ? `<span style="font-size:0.6rem; color:#555; margin-left:8px;">📶 ${g.ssid}</span>` : ''}
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button class="btn-copy-small btn-restore" title="IDs laden">Laden</button>
+                        <button class="btn-copy-small btn-claim" title="${claimCmd}">Code</button>
+                        <button class="btn-copy-small btn-delete-batch" title="Batch loeschen" style="background:#3f1515;">X</button>
                     </div>
                 `;
 
-                const delBtn = document.createElement('button');
-                delBtn.textContent = '×';
-                delBtn.style.cssText = 'background:none; border:none; color:#666; cursor:pointer;';
-                delBtn.onclick = () => deleteHistoryItem(item.origIdx);
-                itemRow.appendChild(delBtn);
+                // Buttons
+                tidHeader.querySelector('.btn-restore').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.getElementById('tid').value = tid;
+                    document.getElementById('pin').value = g.pin;
+                    log(`Batch '${tid}' geladen.`, 'ok');
+                });
+                tidHeader.querySelector('.btn-claim').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    navigator.clipboard.writeText(claimCmd);
+                    log(`Kopiert: ${claimCmd}`, 'ok');
+                });
+                tidHeader.querySelector('.btn-delete-batch').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteBatch(tid);
+                });
 
-                itemsDiv.appendChild(itemRow);
+                // Toggle Device List
+                tidHeader.addEventListener('click', (e) => {
+                    if (e.target.tagName === 'BUTTON') return;
+                    const devList = tidDiv.querySelector('.device-list');
+                    if (devList) devList.classList.toggle('open');
+                });
+
+                tidDiv.appendChild(tidHeader);
+
+                // Device Liste
+                const devList = document.createElement('div');
+                devList.className = 'ledger-items device-list';
+                devList.style.cssText = 'margin-top:5px; padding-left:10px; border-left:2px solid #333;';
+                g.items.forEach(item => {
+                    const itemRow = document.createElement('div');
+                    itemRow.style.cssText = 'display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:0.7rem;';
+                    itemRow.innerHTML = `
+                        <div>
+                            <span style="color:#aaa;">${item.mac || 'Keine MAC'}</span>
+                            <span style="color:#444; margin-left:8px;">${item.timestamp}</span>
+                        </div>
+                    `;
+                    const delBtn = document.createElement('button');
+                    delBtn.textContent = '×';
+                    delBtn.style.cssText = 'background:none; border:none; color:#555; cursor:pointer; font-size:0.8rem;';
+                    delBtn.onclick = (e) => { e.stopPropagation(); deleteHistoryItem(item.origIdx); };
+                    itemRow.appendChild(delBtn);
+                    devList.appendChild(itemRow);
+                });
+                tidDiv.appendChild(devList);
+
+                tidContainer.appendChild(tidDiv);
             });
-            groupDiv.appendChild(itemsDiv);
 
-            list.appendChild(groupDiv);
+            tagDiv.appendChild(tidContainer);
+            list.appendChild(tagDiv);
         });
     }
 
@@ -921,14 +1009,15 @@
             log("CONFIG GESENDET!", 'ok');
             configSuccess = true;
 
-            // --- ERFOLG: Ledger & Claim Assistant (mit MAC!) ---
+            // --- ERFOLG: Ledger & Claim Assistant (mit MAC & SSID!) ---
             addToHistory({
                 timestamp: new Date().toLocaleString('de-DE'),
                 tid: tid,
                 pin: pin,
                 tags: tags,
                 desc: desc,
-                mac: currentMac
+                mac: currentMac,
+                ssid: ssid
             });
             currentMac = "Unbekannt"; // Reset fuer naechstes Geraet
 
@@ -1161,7 +1250,7 @@
             profiles: JSON.parse(localStorage.getItem('triton_profiles') || '{}'),
             ledger: JSON.parse(localStorage.getItem('triton_ledger') || '[]'),
             exportedAt: new Date().toISOString(),
-            version: 'v27'
+            version: 'v28'
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -1182,6 +1271,90 @@
         renderHistory();
         log("Eintrag geloescht.", 'sys');
     };
+
+    // --- KNOWLEDGE BASE MODAL ---
+    const helpTopics = {
+        config: {
+            title: 'Konfiguration',
+            content: `
+                <details open>
+                    <summary>Was ist die Tenant ID?</summary>
+                    <p>Die Tenant ID (TID) ist eine Gruppen-ID fuer mehrere Geraete. Alle Geraete mit derselben TID gehoeren zusammen und koennen gemeinsam verwaltet werden.</p>
+                </details>
+                <details>
+                    <summary>Was ist der Claim PIN?</summary>
+                    <p>Der PIN ist ein 4-stelliger Sicherheitscode, der verhindert, dass Fremde dein Geraet uebernehmen. Du brauchst ihn zusammen mit der TID um das Geraet zu "claimen".</p>
+                </details>
+                <details>
+                    <summary>Was sind Tags?</summary>
+                    <p>Tags helfen dir, Geraete zu organisieren. Beispiele: "wohnzimmer", "erdgeschoss", "pumpe". Sie erscheinen im Protokoll und erleichtern die Uebersicht bei vielen Geraeten.</p>
+                </details>
+                <details>
+                    <summary>Was ist der KI Kontext?</summary>
+                    <p>Eine Beschreibung fuer KI-Assistenten. Erklaere hier, was das Geraet steuert, z.B. "Poolpumpe im Garten" oder "Licht Flur OG".</p>
+                </details>
+            `
+        },
+        claim: {
+            title: 'Geraet Claimen',
+            content: `
+                <details open>
+                    <summary>Was bedeutet "Claimen"?</summary>
+                    <p>Das Geraet mit deinem Telegram-Account verknuepfen. Erst nach dem Claim kannst du es per Telegram steuern.</p>
+                </details>
+                <details>
+                    <summary>Wie funktioniert es?</summary>
+                    <p>1. Kopiere den Claim-Code (z.B. "/claim grp_abc1 1234")<br>
+                    2. Oeffne den Telegram-Bot<br>
+                    3. Fuege den Code ein und sende ihn</p>
+                </details>
+                <details>
+                    <summary>Code funktioniert nicht?</summary>
+                    <p>Pruefe: Ist das Geraet im WLAN? Hat es Internet? Warte 30 Sekunden nach dem Config-Senden und versuche es erneut.</p>
+                </details>
+            `
+        },
+        ledger: {
+            title: 'Protokoll / Ledger',
+            content: `
+                <details open>
+                    <summary>Was ist das Protokoll?</summary>
+                    <p>Eine lokale Historie aller konfigurierten Geraete. Gruppiert nach Tags und TID fuer bessere Uebersicht.</p>
+                </details>
+                <details>
+                    <summary>Batch Mode?</summary>
+                    <p>Bei aktiviertem Lock-Symbol bleiben TID und PIN gleich. Ideal fuer Serienproduktion: Mehrere Geraete, ein Claim-Code.</p>
+                </details>
+                <details>
+                    <summary>Export / Backup</summary>
+                    <p>Der Export-Button speichert alle Profile und das Protokoll als JSON-Datei. Nuetzlich als Backup oder fuer Dokumentation.</p>
+                </details>
+            `
+        }
+    };
+
+    window.openHelp = function(topic) {
+        const modal = document.getElementById('help-modal');
+        const content = document.getElementById('help-content');
+        const data = helpTopics[topic];
+
+        if (data) {
+            content.innerHTML = `<h4 style="color:var(--accent); margin-top:0;">${data.title}</h4>${data.content}`;
+        } else {
+            content.innerHTML = '<p>Thema nicht gefunden.</p>';
+        }
+
+        modal.classList.add('open');
+    };
+
+    window.closeHelp = function() {
+        document.getElementById('help-modal').classList.remove('open');
+    };
+
+    // Schliessen bei Klick auf Overlay
+    document.getElementById('help-modal').addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal-overlay')) closeHelp();
+    });
 
 })();
 </script>
