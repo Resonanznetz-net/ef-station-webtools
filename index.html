@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v17.1 | Bundle Import</title>
+    <title>Triton Cockpit v17.2 | API Fix</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -144,7 +144,7 @@
     </div>
 
     <header>
-        <h1>Triton Engine <span style="font-size:0.6em; color:#666;">v17.1</span></h1>
+        <h1>Triton Engine <span style="font-size:0.6em; color:#666;">v17.2</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -232,7 +232,7 @@
     }
 
     function init() {
-        console.log('Triton v17.1 Init...');
+        console.log('Triton v17.2 Init...');
 
         // 1. ID/PIN sofort generieren
         generateIds();
@@ -407,7 +407,9 @@
                 baudrate: 921600,
                 terminal: termStub
             });
-            const chip = await espLoader.main_fn();
+
+            // v0.5.4 API: main() statt main_fn()
+            const chip = await espLoader.main();
             log(`Chip: ${chip}`, 'ok');
             setProgress(10, "Chip OK");
 
