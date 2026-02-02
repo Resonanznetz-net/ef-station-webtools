@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v29 | Connectivity & Data</title>
+    <title>Triton Cockpit v29.1 | Connectivity & Data</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -305,7 +305,7 @@
     </div>
 
     <header>
-        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v29 Connectivity & Data</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v29.1 Connectivity & Data</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -460,12 +460,15 @@
 
     // --- INIT ---
     function init() {
-        console.log('Triton v29 Connectivity & Data Init...');
+        console.log('Triton v29.1 Fix Init...');
 
         // 1. IDs generieren (force beim Start, damit Felder nicht leer)
         generateIds(true);
 
-        // 2. Library Check
+        // 2. Multi-WiFi initialisieren (MUSS vor loadProfiles kommen!)
+        initWifiRows();
+
+        // 3. Library Check
         function checkLibrary() {
             if (typeof window.esptoolJs !== 'undefined') {
                 ESPLoader = window.esptoolJs.ESPLoader;
@@ -486,19 +489,16 @@
             }, 500);
         }
 
-        // 3. Browser Check
+        // 4. Browser Check
         if (!("serial" in navigator)) {
             document.getElementById('browser-warning').style.display = 'block';
             log("WebSerial nicht unterstuetzt!", 'err');
             return;
         }
 
-        // 4. Profile & Historie laden
+        // 5. Profile & Historie laden (nach WiFi-Init!)
         loadProfiles();
         renderHistory();
-
-        // 5. Multi-WiFi initialisieren
-        initWifiRows();
 
         // 6. Event Listener
         setupEventListeners();
@@ -1110,7 +1110,8 @@
     }
 
     // --- PROFILE ---
-    const pFields = ['ssid', 'pass', 'host', 'secret', 'tags', 'desc'];
+    // FIX v29.1: ssid/pass entfernt - werden jetzt dynamisch via wifi-container behandelt
+    const pFields = ['host', 'secret', 'tags', 'desc'];
 
     function loadProfiles() {
         const pSel = document.getElementById('profile-select');
@@ -1147,8 +1148,21 @@
         if (!n) return;
 
         const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        d[n] = {};
-        pFields.forEach(f => d[n][f] = document.getElementById(f).value);
+        const wifiData = getWifiConfig(); // Holt Daten aus dynamischen Zeilen
+
+        d[n] = {
+            // WiFi-Liste speichern (neues Format)
+            wifi: wifiData.list,
+            // Legacy-Felder fuer Abwaertskompatibilitaet
+            ssid: wifiData.list[0]?.ssid || '',
+            pass: wifiData.list[0]?.pass || '',
+            // Standard-Felder
+            host: document.getElementById('host').value,
+            secret: document.getElementById('secret').value,
+            tags: document.getElementById('tags').value,
+            desc: document.getElementById('desc').value
+        };
+
         localStorage.setItem('triton_profiles', JSON.stringify(d));
         localStorage.setItem('triton_last_profile', n);
         loadProfiles();
@@ -1176,9 +1190,32 @@
         if (!n) return;
 
         const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        if (d[n]) {
-            pFields.forEach(f => document.getElementById(f).value = d[n][f] || '');
+        const data = d[n];
+
+        if (data) {
+            // 1. Standard-Felder fuellen (Host, Tags, etc.)
+            pFields.forEach(f => {
+                const el = document.getElementById(f);
+                if (el) el.value = data[f] || '';
+            });
+
+            // 2. WiFi-Felder fuellen (Spezialbehandlung fuer Multi-WiFi)
+            const container = document.getElementById('wifi-container');
+            container.innerHTML = ''; // Reset
+
+            if (data.wifi && Array.isArray(data.wifi)) {
+                // Neues Format (Liste)
+                data.wifi.forEach(w => addWifiRow(w.ssid, w.pass));
+            } else if (data.ssid) {
+                // Altes Format (Legacy Support)
+                addWifiRow(data.ssid, data.pass);
+            } else {
+                // Fallback leer
+                addWifiRow();
+            }
+
             localStorage.setItem('triton_last_profile', n);
+            log(`Profil '${n}' geladen.`, 'sys');
         }
     }
 
@@ -1313,7 +1350,7 @@
             profiles: JSON.parse(localStorage.getItem('triton_profiles') || '{}'),
             ledger: JSON.parse(localStorage.getItem('triton_ledger') || '[]'),
             exportedAt: new Date().toISOString(),
-            version: 'v29'
+            version: 'v29.1'
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
