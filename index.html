@@ -408,8 +408,8 @@
                 terminal: termStub
             });
 
-            // v0.5.4 API: main() statt main_fn()
-            const chip = await espLoader.main();
+            // v0.5.4 API: main() mit C3 Native USB Parametern
+            const chip = await espLoader.main('default_reset', 'default_reset', 'dio', 'dio');
             log(`Chip: ${chip}`, 'ok');
             setProgress(10, "Chip OK");
 
