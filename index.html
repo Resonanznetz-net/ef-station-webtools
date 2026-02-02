@@ -442,8 +442,15 @@
             await transport.setDTR(true);
             await transport.setRTS(false);
 
-            await transport.disconnect();
-            await device.close();
+            // FIX: Robustes Cleanup für Native USB (Port kann bereits geschlossen sein nach Reset)
+            try {
+                await transport.disconnect();
+            } catch (e) { console.log("Disconnect Warnung (normal bei Reset):", e); }
+
+            try {
+                await device.close();
+            } catch (e) { console.log("Close Warnung (Port war schon weg):", e); }
+
             transport = null;
             espLoader = null;
             device = null;
