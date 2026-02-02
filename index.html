@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triton Cockpit v23 | Factory Suite</title>
+    <title>Triton Cockpit v24 | Auto-Pilot</title>
     <script type="module">
         import { ESPLoader, Transport } from 'https://unpkg.com/esptool-js@0.5.4/bundle.js';
         window.esptoolJs = { ESPLoader, Transport };
@@ -234,7 +234,7 @@
     </div>
 
     <header>
-        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v23 Factory Suite</span></h1>
+        <h1>Triton Cockpit <span style="font-size:0.6em; color:#666;">v24 Auto-Pilot</span></h1>
         <div class="profile-bar">
             <label style="margin:0; color: var(--text-muted);">Profil:</label>
             <select id="profile-select"><option value="">-- Profil --</option></select>
@@ -284,30 +284,23 @@
                 </div>
                 <button id="btn-config" class="btn btn-config">CONFIG SENDEN (Repair Mode)</button>
             </div>
+
+            <!-- CLAIM ASSISTANT (erscheint nach erfolgreicher Config) -->
+            <div id="claim-card" class="card" style="display:none; border:1px solid var(--success); background:#052e16;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="color:var(--success); margin:0; border:none; padding:0;">3. FERTIG!</h2>
+                    <button onclick="document.getElementById('claim-card').style.display='none'" style="background:none; border:none; color:#888; cursor:pointer; font-size:1.2rem;">&times;</button>
+                </div>
+                <p style="font-size:0.8rem; color:#ccc; margin:10px 0 5px 0;">Telegram Verknuepfung:</p>
+                <div class="claim-box" id="claim-code" title="Klicken zum Kopieren">/claim ... ...</div>
+                <a id="btn-telegram" class="btn-telegram" href="https://t.me/IAM_Klein_Bot" target="_blank">Bot oeffnen</a>
+            </div>
         </div>
 
         <div class="resizer" id="drag-1"></div>
 
         <!-- MITTLERE SPALTE: Monitor -->
         <div class="col-middle">
-            <!-- CLAIM ASSISTANT (erscheint nach erfolgreicher Config) -->
-            <div id="claim-card" class="card">
-                <h2 style="color:var(--success); border-color:var(--success);">3. Fertig! Naechster Schritt:</h2>
-                <p style="font-size:0.85rem; text-align:center; margin:5px 0;">
-                    Sende diesen Befehl an <strong>@IAM_Klein_Bot</strong> in Telegram,<br>
-                    um das Geraet mit deinem Account zu verbinden:
-                </p>
-                <div class="claim-box" id="claim-code" title="Klicken zum Kopieren">
-                    /claim ... ...
-                </div>
-                <a id="btn-telegram" class="btn-telegram" href="https://t.me/IAM_Klein_Bot" target="_blank">
-                    Telegram Bot oeffnen
-                </a>
-                <p style="font-size:0.7rem; color:var(--text-muted); text-align:center; margin-top:10px;">
-                    Der Code wurde automatisch in der Historie gespeichert.
-                </p>
-            </div>
-
             <div class="monitor-container">
                 <div class="monitor-header">
                     <span>SYSTEM MONITOR</span>
@@ -364,7 +357,7 @@
 
     // --- INIT ---
     function init() {
-        console.log('Triton v23 Factory Suite Init...');
+        console.log('Triton v24 Auto-Pilot Init...');
 
         // 1. IDs generieren
         generateIds();
@@ -496,7 +489,7 @@
 
         const cmd = `/claim ${tid} ${pin}`;
         codeBox.textContent = cmd;
-        card.classList.add('visible');
+        card.style.display = 'flex';
 
         // Click to copy
         codeBox.onclick = () => {
@@ -512,7 +505,7 @@
     }
 
     function hideClaimAssistant() {
-        document.getElementById('claim-card').classList.remove('visible');
+        document.getElementById('claim-card').style.display = 'none';
     }
 
     // --- EVENT LISTENERS ---
@@ -691,7 +684,7 @@
         }
     }
 
-    // --- CONFIG (Repair Mode Ready) ---
+    // --- CONFIG ENGINE (Seamless Port Handover) ---
     async function handleConfig() {
         const ssid = document.getElementById('ssid').value;
         const pass = document.getElementById('pass').value;
@@ -700,6 +693,15 @@
             log("SSID/Passwort fehlen!", 'err');
             alert("Bitte SSID und Passwort eingeben!");
             return;
+        }
+
+        // Stoppe Monitor falls aktiv (wir brauchen Port exklusiv)
+        if (isMonitoring && monitorReader) {
+            log("Pausiere Monitor fuer Config...", 'sys');
+            isMonitoring = false;
+            try { await monitorReader.cancel(); monitorReader.releaseLock(); } catch(e){}
+            monitorReader = null;
+            // WICHTIG: Port NICHT schliessen - wir uebernehmen ihn!
         }
 
         const btnConf = document.getElementById('btn-config');
@@ -712,50 +714,21 @@
         const tags = document.getElementById('tags').value.replace(/\|/g, ",") || "neu";
         const desc = document.getElementById('desc').value.replace(/\|/g, " ") || "n/a";
 
-        let port = null;
-        let reader = null;
+        let portToUse = monitorPort; // Versuche existierenden Port
         let writer = null;
         let configSuccess = false;
 
         try {
-            log("Oeffne Port...", 'sys');
-            port = await navigator.serial.requestPort();
-            await port.open({ baudRate: 115200 });
-
-            log("Warte auf READY...", 'sys');
-            btnConf.innerText = "Warte...";
-
-            const decoder = new TextDecoderStream();
-            port.readable.pipeTo(decoder.writable);
-            reader = decoder.readable.getReader();
-
-            let buffer = "";
-            const timeout = new Promise((_, rej) =>
-                setTimeout(() => rej(new Error("Timeout - Reset druecken!")), 5000)
-            );
-
-            const readLoop = async () => {
-                while (true) {
-                    const { value, done } = await reader.read();
-                    if (done) break;
-                    if (value) {
-                        buffer += value;
-                        if (value.trim()) log(`[ESP] ${value.trim()}`, 'sys');
-                        if (buffer.includes("READY")) return true;
-                    }
-                }
-            };
-
-            try {
-                await Promise.race([readLoop(), timeout]);
-                log("ESP Ready!", 'ok');
-            } catch (e) {
-                log(e.message, 'err');
+            // Port Uebernahme oder neu anfordern
+            if (!portToUse || !portToUse.writable) {
+                log("Oeffne Port...", 'sys');
+                portToUse = await navigator.serial.requestPort();
+                await portToUse.open({ baudRate: 115200 });
+            } else {
+                log("Nutze offenen Port...", 'sys');
             }
 
-            try { reader.releaseLock(); reader = null; } catch (e) {}
-
-            // V2 Protocol
+            // V2 Protocol - Data Prep
             const secret = document.getElementById('secret').value;
             const host = document.getElementById('host').value.replace("https://", "").replace(/\/$/g, "");
 
@@ -774,52 +747,45 @@
             log(`Sende ${enc.length} Bytes...`, 'sys');
             btnConf.innerText = "Sende...";
 
-            writer = port.writable.getWriter();
+            writer = portToUse.writable.getWriter();
             await writer.write(packet);
             writer.releaseLock();
             writer = null;
 
-            log("KONFIGURATION ERFOLGREICH GESENDET!", 'ok');
-            log("Geraet startet neu...", 'sys');
+            log("CONFIG GESENDET!", 'ok');
             configSuccess = true;
+
+            // --- ERFOLG: Ledger & Claim Assistant ---
+            addToHistory({
+                timestamp: new Date().toLocaleString('de-DE'),
+                tid: tid,
+                pin: pin,
+                tags: tags,
+                desc: desc
+            });
+
+            showClaimAssistant(tid, pin);
+
+            // UI fuer naechstes Geraet
+            btnConf.classList.remove('active');
+            btnConf.innerText = "CONFIG SENDEN";
+            btnConf.style.background = "";
+            btnConf.style.color = "";
+
+            generateIds();
+            log("Neue IDs generiert.", 'sys');
+            document.getElementById('btn-flash').innerText = "NAECHSTES FLASHEN";
+
+            // AUTO-MONITOR: Port offen lassen und Monitor starten
+            log("Starte Auto-Monitor...", 'sys');
+            startMonitorLoop(portToUse);
 
         } catch (e) {
             log("Config Fehler: " + e.message, 'err');
-            btnConf.disabled = false;
             btnConf.innerText = "Retry Config";
-        } finally {
-            try { if (reader) reader.releaseLock(); } catch (e) {}
-            try { if (writer) writer.releaseLock(); } catch (e) {}
-            try { if (port) await port.close(); } catch (e) {}
-
-            if (configSuccess) {
-                // --- ERFOLG: Ledger & Claim Assistant ---
-
-                // 1. In Historie speichern
-                addToHistory({
-                    timestamp: new Date().toLocaleString('de-DE'),
-                    tid: tid,
-                    pin: pin,
-                    tags: tags,
-                    desc: desc
-                });
-
-                // 2. Claim Assistant anzeigen
-                showClaimAssistant(tid, pin);
-
-                // 3. UI fuer naechstes Geraet vorbereiten
-                btnConf.classList.remove('active');
-                btnConf.disabled = false;
-                btnConf.innerText = "Config erneut";
-                btnConf.style.background = "#334155";
-                btnConf.style.color = "#94a3b8";
-
-                // 4. NEUE IDs fuer naechstes Geraet
-                generateIds();
-                log("Neue IDs generiert. Bereit fuer naechstes Geraet.", 'sys');
-
-                document.getElementById('btn-flash').innerText = "NAECHSTES FLASHEN";
-            }
+            if (writer) try { writer.releaseLock(); } catch(ex){}
+            // Im Fehlerfall Port schliessen
+            try { if(portToUse && portToUse !== monitorPort) await portToUse.close(); } catch(ex){}
         }
     }
 
@@ -828,14 +794,32 @@
 
     function loadProfiles() {
         const pSel = document.getElementById('profile-select');
+        if (!pSel) return;
+
         const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
-        pSel.innerHTML = '<option value="">-- Profil --</option>';
-        Object.keys(d).forEach(k => {
+        const lastUsed = localStorage.getItem('triton_last_profile');
+
+        pSel.innerHTML = '<option value="">-- Profil laden --</option>';
+        const keys = Object.keys(d);
+
+        keys.forEach(k => {
             const o = document.createElement('option');
             o.value = k;
             o.innerText = k;
             pSel.appendChild(o);
         });
+
+        // AUTO-SELECT: Letztes Profil oder erstes verfuegbares
+        if (keys.length > 0) {
+            if (lastUsed && d[lastUsed]) {
+                pSel.value = lastUsed;
+            } else {
+                pSel.value = keys[0];
+            }
+            // Trigger Change um Felder zu fuellen
+            loadSelectedProfile();
+            log(`Profil '${pSel.value}' auto-geladen.`, 'sys');
+        }
     }
 
     function saveProfile() {
@@ -846,6 +830,7 @@
         d[n] = {};
         pFields.forEach(f => d[n][f] = document.getElementById(f).value);
         localStorage.setItem('triton_profiles', JSON.stringify(d));
+        localStorage.setItem('triton_last_profile', n);
         loadProfiles();
         document.getElementById('profile-select').value = n;
         log(`Profil '${n}' gespeichert.`, 'ok');
@@ -873,7 +858,7 @@
         const d = JSON.parse(localStorage.getItem('triton_profiles') || '{}');
         if (d[n]) {
             pFields.forEach(f => document.getElementById(f).value = d[n][f] || '');
-            log(`Profil '${n}' geladen.`, 'sys');
+            localStorage.setItem('triton_last_profile', n);
         }
     }
 
@@ -882,33 +867,24 @@
     let monitorPort = null;
     let isMonitoring = false;
 
-    document.getElementById('btn-monitor').addEventListener('click', async () => {
+    // Extrahierte Monitor-Loop Funktion fuer Seamless Handover
+    async function startMonitorLoop(existingPort) {
         const btn = document.getElementById('btn-monitor');
-
-        if (isMonitoring) {
-            isMonitoring = false;
-            try {
-                if (monitorReader) { await monitorReader.cancel(); monitorReader.releaseLock(); }
-                if (monitorPort) await monitorPort.close();
-            } catch (e) {}
-
-            monitorPort = null;
-            monitorReader = null;
-            btn.innerText = "VERBINDEN";
-            btn.style.background = "#222";
-            log("Monitor gestoppt.", 'sys');
-            return;
-        }
-
         try {
-            log("Starte Live-Monitor...", 'sys');
-            monitorPort = await navigator.serial.requestPort();
-            await monitorPort.open({ baudRate: 115200 });
+            // Port Uebernahme oder Neuverbindung
+            if (existingPort && existingPort.readable) {
+                monitorPort = existingPort;
+                log("Monitor: Port uebernommen.", 'sys');
+            } else {
+                log("Monitor: Fordere Port an...", 'sys');
+                monitorPort = await navigator.serial.requestPort();
+                await monitorPort.open({ baudRate: 115200 });
+            }
 
-            btn.innerText = "TRENNEN";
-            btn.style.background = "var(--danger)";
             isMonitoring = true;
-            log("Monitor verbunden! (115200 Baud)", 'ok');
+            btn.innerText = "STOPP";
+            btn.style.background = "var(--danger)";
+            log("Monitor aktiv (115200 Baud)", 'ok');
 
             const decoder = new TextDecoderStream();
             monitorPort.readable.pipeTo(decoder.writable);
@@ -918,17 +894,39 @@
             while (isMonitoring) {
                 const { value, done } = await reader.read();
                 if (done) break;
-                if (value && value.trim()) log(`[RAW] ${value.trim()}`, 'sys');
+                if (value && value.trim()) log(`[ESP] ${value.trim()}`, 'sys');
             }
 
         } catch (e) {
-            log("Monitor Fehler: " + e.message, 'err');
+            log("Monitor: " + e.message, 'err');
             if (e.message.includes("already open") || e.message.includes("Resource busy")) {
-                log("TIPP: Reset-Taster am ESP druecken oder USB kurz trennen.", 'sys');
+                log("TIPP: Reset-Taster am ESP druecken.", 'sys');
             }
             isMonitoring = false;
             btn.innerText = "VERBINDEN";
             btn.style.background = "#222";
+        }
+    }
+
+    async function stopMonitor() {
+        isMonitoring = false;
+        try {
+            if (monitorReader) { await monitorReader.cancel(); monitorReader.releaseLock(); }
+            if (monitorPort) await monitorPort.close();
+        } catch (e) {}
+        monitorPort = null;
+        monitorReader = null;
+        const btn = document.getElementById('btn-monitor');
+        btn.innerText = "VERBINDEN";
+        btn.style.background = "#222";
+    }
+
+    document.getElementById('btn-monitor').addEventListener('click', async () => {
+        if (isMonitoring) {
+            await stopMonitor();
+            log("Monitor gestoppt.", 'sys');
+        } else {
+            startMonitorLoop(null); // Null = Neuen Port anfordern
         }
     });
 
@@ -985,7 +983,7 @@
             profiles: JSON.parse(localStorage.getItem('triton_profiles') || '{}'),
             ledger: JSON.parse(localStorage.getItem('triton_ledger') || '[]'),
             exportedAt: new Date().toISOString(),
-            version: 'v23'
+            version: 'v24'
         };
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
